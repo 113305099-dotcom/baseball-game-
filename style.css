@@ -1596,3 +1596,244 @@ h3 {
     flex: 1 1 140px;
   }
 }
+
+/* ===== v1.14 新增樣式 ===== */
+
+/* 一軍/二軍區段 */
+.roster-sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 10px;
+}
+.roster-section {
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(8, 15, 28, 0.55);
+}
+.roster-section.major-section { border-color: rgba(74, 222, 128, 0.45); }
+.roster-section.minor-section { border-color: rgba(251, 191, 36, 0.38); }
+.roster-section header {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.32);
+}
+.roster-section h3 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 1px;
+}
+.roster-section header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.roster-count {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.18);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.roster-section-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  min-height: 120px;
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.18s ease;
+}
+.roster-section-cards:empty::before {
+  content: "拖拽球員卡片到此區";
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.trading-card.minor-card {
+  opacity: 0.78;
+  border-style: dashed;
+}
+
+/* 守位拖拽 */
+.defense-slot[draggable="true"] {
+  cursor: grab;
+}
+.defense-slot[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* 牛棚 SP/RP 區分 */
+.bullpen-section {
+  margin: 8px 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.22);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.bullpen-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 6px;
+  background: rgba(8, 15, 28, 0.62);
+}
+.bullpen-row.tired {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(80, 14, 20, 0.45);
+}
+.bullpen-row strong {
+  display: block;
+  font-size: 13px;
+}
+.bullpen-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.bullpen-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 6px;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.bullpen-btn:hover { background: #2563eb; }
+
+/* 碎片商店 */
+.shard-shop {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(67, 18, 99, 0.42), rgba(8, 15, 28, 0.78));
+  box-shadow: 0 12px 40px rgba(80, 14, 99, 0.32);
+}
+.shard-shop-header h3 {
+  margin: 0;
+  color: #e9d5ff;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+.shard-shop-header p {
+  margin: 4px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.shard-shop-balance {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.18);
+  color: #e9d5ff;
+  font-size: 13px;
+}
+.shard-shop-balance strong {
+  margin-left: 4px;
+  color: #fbbf24;
+  font-size: 16px;
+  font-weight: 900;
+}
+.shard-shop-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.hero-card {
+  padding: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.42);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.78);
+}
+.hero-card.hero-owned {
+  opacity: 0.55;
+  border-style: dashed;
+}
+.hero-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.hero-card h4 {
+  margin: 0;
+  color: #fbbf24;
+  font-size: 14px;
+}
+.hero-card h4 small {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.hero-cost {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.16);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 800;
+}
+.hero-position {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.hero-abilities {
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 12px;
+}
+.hero-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.hero-redeem-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 1px solid rgba(168, 85, 247, 0.55);
+  border-radius: 6px;
+  background: #7c3aed;
+  color: #fff;
+  font-weight: 700;
+}
+.hero-redeem-btn:hover:not(:disabled) { background: #9333ea; }
+.hero-redeem-btn:disabled {
+  background: #312e81;
+  cursor: not-allowed;
+}
+
+/* 抽卡時的重複橫幅 */
+.duplicate-banner {
+  margin: 4px auto 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fbbf24, #f97316);
+  color: #1c1917;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* HUD 碎片 chip 微調 */
+#shard-count { color: #fbbf24; }

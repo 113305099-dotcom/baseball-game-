@@ -26,6 +26,10 @@
             <strong id="currency">0</strong>
           </div>
           <div class="hud-chip">
+            <span>碎片</span>
+            <strong id="shard-count">0</strong>
+          </div>
+          <div class="hud-chip">
             <span>戰績</span>
             <strong id="season-record">0-0</strong>
           </div>
@@ -291,6 +295,14 @@
               <h3>最新招募</h3>
               <div id="expansion-preview" class="expansion-preview"></div>
             </section>
+            <section class="shard-shop" aria-labelledby="shard-shop-title">
+              <header class="shard-shop-header">
+                <h3 id="shard-shop-title">碎片商店</h3>
+                <p>抽到重複球員會獲得球員碎片，集滿後可在這裡兌換傳奇英雄。</p>
+                <div class="shard-shop-balance">目前碎片：<strong id="shard-balance">0</strong></div>
+              </header>
+              <div id="shard-shop-list" class="shard-shop-list"></div>
+            </section>
           </div>
         </section>
 
@@ -348,6 +360,7 @@
     </div>
   </div>
 
+  <script src="data.js"></script>
   <script src="game.js"></script>
   <script>
     Object.assign(i18n, {
@@ -386,7 +399,7 @@
       if (name === 'medical') renderMedicalScene();
       if (name === 'pregame') renderPregameScene();
       if (name === 'match') game.updateUI();
-      if (name === 'shop') renderGachaPoolPreview();
+      if (name === 'shop') { renderGachaPoolPreview(); renderShardShop(); }
       syncDerivedUI();
     }
 
@@ -558,8 +571,8 @@
         const player = game.roster.players[playerIndex];
         const assigned = game.getAssignedPosition(playerIndex) || 'DH';
         const selected = orderIndex === pregameSelectedLineupSlot ? ' active' : '';
-        return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, -1)" ${orderIndex === 0 ? 'disabled' : ''}>↑</button><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, 1)" ${orderIndex === game.playerBattingOrder.length - 1 ? 'disabled' : ''}>↓</button><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
-      }).join('')}</div>`;
+        return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
+      }).join('')}</div><p class="pregame-note">提示：拖拽棒次列調整打序。</p>`;
 
       coaches.innerHTML = `
         <h4>教練團</h4>
@@ -573,8 +586,8 @@
         const playerIndex = game.defensiveAssignments[slot];
         const player = game.roster.players[playerIndex];
         const penalty = player ? player.getPositionPenalty(slot) : 0;
-        return `<button class="defense-slot" type="button" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${POSITION_LABELS[slot] || slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></button>`;
-      }).join('')}</div>`;
+        return `<div class="defense-slot" draggable="${player ? 'true' : 'false'}" data-slot="${slot}" ondragstart="dragDefenseSlot(event, '${slot}')" ondragover="event.preventDefault()" ondrop="dropDefenseSlot(event, '${slot}')" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${POSITION_LABELS[slot] || slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></div>`;
+      }).join('')}</div><p class="pregame-note">提示：拖拽兩個守位互換球員，或點擊單一守位循環換位置。</p>`;
 
       bench.innerHTML = `
         <h4>板凳｜點選後換入第 ${pregameSelectedLineupSlot + 1} 棒</h4>
@@ -618,6 +631,56 @@
       renderPregameScene();
     }
 
+    // v1.14：守位拖拽
+    let pregameDragDefenseSlot = null;
+    function dragDefenseSlot(event, slot) {
+      pregameDragDefenseSlot = slot;
+      event.dataTransfer?.setData('text/plain', `slot:${slot}`);
+    }
+    function dropDefenseSlot(event, targetSlot) {
+      event.preventDefault();
+      const raw = event.dataTransfer?.getData('text/plain') || '';
+      const fromSlot = pregameDragDefenseSlot || (raw.startsWith('slot:') ? raw.slice(5) : null);
+      pregameDragDefenseSlot = null;
+      if (!fromSlot || fromSlot === targetSlot) return;
+      game.swapDefenseSlots(fromSlot, targetSlot);
+      renderPregameScene();
+    }
+
+    // v1.14：碎片商店畫面
+    function renderShardShop() {
+      const list = document.getElementById('shard-shop-list');
+      const balance = document.getElementById('shard-balance');
+      if (!list || !balance) return;
+      balance.textContent = game.playerShards || 0;
+      const heroes = Array.isArray(window.LEGENDARY_HERO_CANDIDATES) ? window.LEGENDARY_HERO_CANDIDATES : [];
+      if (!heroes.length) {
+        list.innerHTML = '<p class="pregame-note">尚未設定傳奇英雄資料（請檢查 data.js）。</p>';
+        return;
+      }
+      list.innerHTML = heroes.map((hero, index) => {
+        const owned = (game.unlockedHeroes || []).includes(hero.name);
+        const affordable = (game.playerShards || 0) >= hero.shardCost;
+        const disabled = owned || !affordable;
+        const status = owned ? '已加入' : affordable ? '兌換' : '碎片不足';
+        const abilityHints = hero.role === 'P'
+          ? `球速 ${hero.abilities.velocity}・控球 ${hero.abilities.control}・變化 ${hero.abilities.breaking}`
+          : `巧打 ${hero.abilities.contact}・長打 ${hero.abilities.power}・走力 ${hero.abilities.speed}`;
+        return `
+          <article class="hero-card ${owned ? 'hero-owned' : ''}">
+            <header>
+              <h4>${hero.name}<small>「${hero.nickname}」</small></h4>
+              <span class="hero-cost">${hero.shardCost} 枚</span>
+            </header>
+            <p class="hero-position">${hero.role === 'P' ? '投手' : hero.role === 'T' ? '二刀流' : '野手'}・${hero.position}</p>
+            <p class="hero-abilities">${abilityHints}</p>
+            <p class="hero-traits">${(hero.traits || []).map(t => `<span class="trait-pill trait-${getTraitTier(t)}">${t}</span>`).join('')}</p>
+            <button class="hero-redeem-btn" ${disabled ? 'disabled' : ''} onclick="redeemHero(${index})">${status}</button>
+          </article>`;
+      }).join('');
+    }
+    window.renderShardShop = renderShardShop;
+
     function movePregameLineup(index, direction) {
       game.movePlayerInLineup(index, direction);
       pregameSelectedLineupSlot = Math.max(0, Math.min(game.playerBattingOrder.length - 1, pregameSelectedLineupSlot + direction));
@@ -635,6 +698,7 @@
     }
 
     function abilityGrid(player) {
+      // v1.14：對左投/對右投仍在內部計算，但不再顯示給玩家
       const batterStats = [
         ['巧打', player.abilities.contact],
         ['長打', player.abilities.power],
@@ -642,8 +706,6 @@
         ['守備', player.abilities.fielding],
         ['肩力', player.abilities.arm],
         ['選球', player.abilities.discipline],
-        ['對左投', player.abilities.vsLeft],
-        ['對右投', player.abilities.vsRight],
         ['得點圈', player.abilities.scoringPosition],
         ['代打', player.abilities.pinchHitter]
       ];
@@ -653,7 +715,6 @@
         ['變化球', player.abilities.breaking],
         ['體力', player.abilities.stamina],
         ['球威', player.abilities.stuff],
-        ['對左打', player.abilities.vsLeft],
         ['危機處理', player.abilities.crisis],
         ['牽制', player.abilities.pickoff],
         ['快速出手', player.abilities.quickDelivery],
@@ -803,6 +864,7 @@
 
     game.updateUI();
     renderGachaPoolPreview();
+    renderShardShop();
     renderPregameScene();
   </script>
 </body>

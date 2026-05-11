@@ -223,56 +223,33 @@ class CommentaryGenerator {
   }
 }
 
-const PLAYER_DATA_VERSION = 2;
+const PLAYER_DATA_VERSION = 3; // v1.14: 新增 pitcherRole / daysOfRest / 碎片 / 牛棚順序
 
 function clampInt(value, min = 0, max = 99) {
   const numeric = Number.isFinite(Number(value)) ? Number(value) : min;
   return Math.max(min, Math.min(max, Math.round(numeric)));
 }
 
-const CPBL_BATTER_STATS_2025 = [
-  { name: '吳念庭', team: '台鋼雄鷹', position: 'IF', role: 'B', avg: 0.328, obp: 0.400, slg: 0.407, ops: 0.807, opsPlus: 138, hr: 2, sb: 5, kRate: 11.94, bbRate: 10.88, errors: 4, source: 'CPBL 2025' },
-  { name: '林安可', team: '統一7-ELEVEn獅', position: 'OF', role: 'B', avg: 0.318, obp: 0.397, slg: 0.603, ops: 1.000, opsPlus: 192, hr: 23, sb: 4, kRate: 17.33, bbRate: 9.60, errors: 1, source: 'CPBL 2025' },
-  { name: '陳晨威', team: '樂天桃猿', position: 'OF', role: 'B', avg: 0.307, obp: 0.366, slg: 0.411, ops: 0.777, opsPlus: 129, hr: 4, sb: 27, kRate: 11.27, bbRate: 8.56, errors: 3, source: 'CPBL 2025' },
-  { name: '林泓育', team: '樂天桃猿', position: 'C/DH', role: 'B', avg: 0.307, obp: 0.345, slg: 0.415, ops: 0.760, opsPlus: 124, hr: 9, sb: 0, kRate: 15.35, bbRate: 4.56, errors: 2, source: 'CPBL 2025' },
-  { name: '魔鷹', team: '台鋼雄鷹', position: '1B/OF', role: 'B', avg: 0.305, obp: 0.387, slg: 0.589, ops: 0.976, opsPlus: 185, hr: 25, sb: 0, kRate: 15.71, bbRate: 8.90, errors: 10, source: 'CPBL 2025' },
-  { name: '李凱威', team: '味全龍', position: 'IF', role: 'B', avg: 0.300, obp: 0.388, slg: 0.338, ops: 0.726, opsPlus: 116, hr: 0, sb: 28, kRate: 9.21, bbRate: 11.13, errors: 8, source: 'CPBL 2025' },
-  { name: '朱育賢', team: '味全龍', position: '1B/OF', role: 'B', avg: 0.293, obp: 0.355, slg: 0.476, ops: 0.831, opsPlus: 144, hr: 15, sb: 2, kRate: 22.13, bbRate: 7.47, errors: 7, source: 'CPBL 2025' },
-  { name: '許基宏', team: '中信兄弟', position: '1B', role: 'B', avg: 0.292, obp: 0.390, slg: 0.525, ops: 0.915, opsPlus: 168, hr: 19, sb: 0, kRate: 21.22, bbRate: 11.95, errors: 5, source: 'CPBL 2025' },
-  { name: '王博玄', team: '台鋼雄鷹', position: 'OF', role: 'B', avg: 0.284, obp: 0.348, slg: 0.351, ops: 0.699, opsPlus: 107, hr: 3, sb: 21, kRate: 14.52, bbRate: 8.38, errors: 11, source: 'CPBL 2025' },
-  { name: '郭天信', team: '味全龍', position: 'OF', role: 'B', avg: 0.280, obp: 0.334, slg: 0.351, ops: 0.685, opsPlus: 102, hr: 4, sb: 17, kRate: 8.87, bbRate: 6.19, errors: 6, source: 'CPBL 2025' },
-  { name: '林佳緯', team: '統一7-ELEVEn獅', position: 'OF', role: 'B', avg: 0.275, obp: 0.322, slg: 0.408, ops: 0.730, opsPlus: 114, hr: 6, sb: 11, kRate: 15.46, bbRate: 5.62, errors: 5, source: 'CPBL 2025' },
-  { name: '吉力吉撈．鞏冠', team: '味全龍', position: 'C', role: 'B', avg: 0.274, obp: 0.337, slg: 0.525, ops: 0.862, opsPlus: 152, hr: 24, sb: 4, kRate: 17.64, bbRate: 6.41, errors: 15, source: 'CPBL 2025' },
-  { name: '曾子祐', team: '台鋼雄鷹', position: 'IF', role: 'B', avg: 0.273, obp: 0.319, slg: 0.323, ops: 0.642, opsPlus: 90, hr: 0, sb: 6, kRate: 6.72, bbRate: 6.52, errors: 7, source: 'CPBL 2025' },
-  { name: '江坤宇', team: '中信兄弟', position: 'IF', role: 'B', avg: 0.272, obp: 0.357, slg: 0.317, ops: 0.674, opsPlus: 100, hr: 1, sb: 7, kRate: 11.21, bbRate: 7.03, errors: 7, source: 'CPBL 2025' },
-  { name: '范國宸', team: '富邦悍將', position: 'IF', role: 'B', avg: 0.275, obp: 0.334, slg: 0.453, ops: 0.787, opsPlus: 125, hr: 13, sb: 1, kRate: 19.84, bbRate: 8.70, errors: 2, source: 'CPBL 2025' },
-  { name: '張育成', team: '富邦悍將', position: 'IF', role: 'B', avg: 0.356, obp: 0.435, slg: 0.603, ops: 1.038, opsPlus: 221, hr: 4, sb: 3, kRate: 14.12, bbRate: 11.76, errors: 3, source: 'CPBL 2026 current' }
-];
-
-const CPBL_PITCHER_STATS_2025 = [
-  { name: '羅戈', team: '中信兄弟', position: 'SP', role: 'P', era: 1.84, whip: 1.04, fip: 2.159, k9: 8.17, kRate: 22.83, bbRate: 5.63, ip: 156, starts: 25, source: 'CPBL 2025' },
-  { name: '後勁', team: '台鋼雄鷹', position: 'SP', role: 'P', era: 1.89, whip: 1.14, fip: 2.840, k9: 6.44, kRate: 17.93, bbRate: 6.25, ip: 152, starts: 25, source: 'CPBL 2025' },
-  { name: '菲力士', team: '統一7-ELEVEn獅', position: 'SP', role: 'P', era: 1.91, whip: 1.06, fip: 2.809, k9: 6.71, kRate: 18.85, bbRate: 6.75, ip: 127, starts: 21, source: 'CPBL 2025' },
-  { name: '威能帝', team: '樂天桃猿', position: 'SP', role: 'P', era: 2.01, whip: 0.91, fip: 2.080, k9: 8.89, kRate: 25.34, bbRate: 4.83, ip: 170, starts: 26, source: 'CPBL 2025' },
-  { name: '艾速特', team: '台鋼雄鷹', position: 'SP', role: 'P', era: 2.23, whip: 1.09, fip: 2.856, k9: 7.90, kRate: 21.99, bbRate: 5.32, ip: 141, starts: 25, source: 'CPBL 2025' },
-  { name: '魔神龍', team: '樂天桃猿', position: 'SP', role: 'P', era: 2.51, whip: 1.08, fip: 2.934, k9: 5.58, kRate: 15.41, bbRate: 4.87, ip: 158, starts: 25, source: 'CPBL 2025' },
-  { name: '鋼龍', team: '味全龍', position: 'SP', role: 'P', era: 2.77, whip: 1.18, fip: 2.874, k9: 7.40, kRate: 19.93, bbRate: 6.64, ip: 146, starts: 24, source: 'CPBL 2025' },
-  { name: '魔力藍', team: '富邦悍將', position: 'SP', role: 'P', era: 2.98, whip: 1.25, fip: 3.019, k9: 7.19, kRate: 19.04, bbRate: 7.55, ip: 139, starts: 23, source: 'CPBL 2025' },
-  { name: '布雷克', team: '統一7-ELEVEn獅', position: 'SP', role: 'P', era: 4.13, whip: 1.31, fip: 3.030, k9: 6.57, kRate: 17.18, bbRate: 4.63, ip: 122, starts: 21, source: 'CPBL 2025' },
-  { name: '林詩翔', team: '台鋼雄鷹', position: 'RP', role: 'P', era: 1.92, whip: 1.10, fip: 3.243, k9: 7.67, kRate: 21.05, bbRate: 8.33, ip: 56, starts: 0, source: 'CPBL 2025' }
-];
-
-const INTERNATIONAL_STAR_CANDIDATES = [
-  { name: '亞倫・賈吉', englishName: 'Aaron Judge', nickname: '法官', role: 'B', position: 'OF', team: 'MLB', abilities: { contact: 84, power: 99, speed: 64, fielding: 83, arm: 94, discipline: 92, clutch: 90 }, physical: { velocity: 94, power: 99, control: 84, speed: 64 }, traits: [i18n.powerHitter, i18n.disciplined] },
-  { name: '大谷翔平', englishName: 'Shohei Ohtani', nickname: '二刀流神獸', role: 'T', position: 'SP/DH', team: 'MLB', abilities: { contact: 86, power: 99, speed: 88, fielding: 72, arm: 98, discipline: 84, clutch: 93, velocity: 99, control: 83, breaking: 94, stamina: 89 }, physical: { velocity: 99, power: 99, control: 86, speed: 88 }, traits: [i18n.legendaryHitter, i18n.elitePitcher] },
-  { name: '穆奇・貝茲', englishName: 'Mookie Betts', nickname: '全能保齡球王', role: 'B', position: 'OF/IF', team: 'MLB', abilities: { contact: 88, power: 83, speed: 84, fielding: 95, arm: 87, discipline: 90, clutch: 87 }, physical: { velocity: 87, power: 83, control: 88, speed: 84 }, traits: [i18n.disciplined] },
-  { name: '胡安・索托', englishName: 'Juan Soto', nickname: '保送魔王', role: 'B', position: 'OF', team: 'MLB', abilities: { contact: 90, power: 94, speed: 58, fielding: 68, arm: 76, discipline: 99, clutch: 91 }, physical: { velocity: 76, power: 94, control: 90, speed: 58 }, traits: [i18n.powerHitter, i18n.disciplined] },
-  { name: '小葛雷諾', englishName: 'Vladimir Guerrero Jr.', nickname: '暴力甜甜圈', role: 'B', position: '1B', team: 'MLB', abilities: { contact: 87, power: 93, speed: 52, fielding: 72, arm: 78, discipline: 80, clutch: 84 }, physical: { velocity: 78, power: 93, control: 87, speed: 52 }, traits: [i18n.powerHitter] },
-  { name: '達比修有', englishName: 'Yu Darvish', nickname: '混球博士', role: 'P', position: 'SP', team: 'MLB', abilities: { velocity: 88, control: 87, breaking: 96, stamina: 80, fielding: 77, discipline: 74 }, physical: { velocity: 88, power: 50, control: 87, speed: 60 }, traits: [i18n.elitePitcher] },
-  { name: '山本由伸', englishName: 'Yoshinobu Yamamoto', nickname: '山本總舵主', role: 'P', position: 'SP', team: 'MLB', abilities: { velocity: 92, control: 93, breaking: 95, stamina: 88, fielding: 80, discipline: 76 }, physical: { velocity: 92, power: 48, control: 93, speed: 63 }, traits: [i18n.elitePitcher] },
-  { name: '佐佐木朗希', englishName: 'Roki Sasaki', nickname: '令和怪物', role: 'P', position: 'SP', team: 'MLB', abilities: { velocity: 99, control: 78, breaking: 92, stamina: 76, fielding: 74, discipline: 70 }, physical: { velocity: 99, power: 45, control: 78, speed: 66 }, traits: [i18n.elitePitcher] },
-  { name: '吉田正尚', englishName: 'Masataka Yoshida', nickname: '肌肉吉田', role: 'B', position: 'OF/DH', team: 'MLB', abilities: { contact: 88, power: 78, speed: 58, fielding: 65, arm: 70, discipline: 87, clutch: 85 }, physical: { velocity: 70, power: 78, control: 88, speed: 58 }, traits: [i18n.clutchHitter] }
-];
+// v1.14：球員資料已搬到外部 data.js（請見專案根目錄的 data.js）
+// 這些變數在 data.js 用 const 宣告，且 data.js 必須在 game.js 之前載入。
+// 為了避免「在不同 script 重複宣告 const」的錯誤，這邊只做 fallback：
+// 如果 data.js 沒載入成功，就用 window 上補一個空陣列 / 預設教練清單。
+if (typeof window !== 'undefined') {
+  if (!Array.isArray(window.CPBL_BATTER_STATS_2025))      window.CPBL_BATTER_STATS_2025      = [];
+  if (!Array.isArray(window.CPBL_PITCHER_STATS_2025))     window.CPBL_PITCHER_STATS_2025     = [];
+  if (!Array.isArray(window.INTERNATIONAL_STAR_CANDIDATES)) window.INTERNATIONAL_STAR_CANDIDATES = [];
+  if (!Array.isArray(window.LEGENDARY_HERO_CANDIDATES))   window.LEGENDARY_HERO_CANDIDATES   = [];
+  if (!Array.isArray(window.COACHES_DATA) || !window.COACHES_DATA.length) {
+    window.COACHES_DATA = [
+      { id: 'hitting',      name: '打擊教練', bonus: '巧打/長打 +2',         hitting: 2,  heat: 0 },
+      { id: 'pitching',     name: '投手教練', bonus: '控球/球威 +2',         pitching: 2, heat: 0 },
+      { id: 'defense',      name: '守備教練', bonus: '守備 +3',              defense: 3,  heat: 0 },
+      { id: 'conditioning', name: '體能教練', bonus: '恢復力 +6，傷病風險下降', recovery: 6, heat: 0 },
+      { id: 'marketing',    name: '人氣教練', bonus: '球場熱度 +8',          heat: 8 }
+    ];
+  }
+  if (typeof window.INITIAL_ROSTER_SPEC !== 'object' || !window.INITIAL_ROSTER_SPEC) window.INITIAL_ROSTER_SPEC = null;
+}
 
 const TRAIT_DESCRIPTIONS = {
   [i18n.legendaryHitter]: '傳奇級打者，關鍵打席更容易打出長打。',
@@ -399,8 +376,8 @@ function createPixelPortrait(player, size = 64) {
 // StatMapper Class - Converts real stats to game attributes
 class StatMapper {
   constructor() {
-    this.cpblBatters = CPBL_BATTER_STATS_2025;
-    this.cpblPitchers = CPBL_PITCHER_STATS_2025;
+    this.cpblBatters = window.CPBL_BATTER_STATS_2025 || [];
+    this.cpblPitchers = window.CPBL_PITCHER_STATS_2025 || [];
     this.cpblTeams = this.buildCpblTeams();
   }
 
@@ -558,6 +535,36 @@ class StatMapper {
     );
   }
 
+  // v1.14：建立傳奇英雄（碎片商店兌換用）
+  createLegendaryHero(candidate) {
+    const traits = ['傳奇英雄', ...(candidate.traits || [])];
+    return new Player(
+      `${candidate.name}「${candidate.nickname}」`,
+      candidate.physical.velocity,
+      candidate.physical.power,
+      candidate.physical.control,
+      candidate.physical.speed,
+      candidate.abilities.stamina || 115,
+      120,
+      0,
+      traits,
+      0,
+      0.06, // 傳奇英雄傷病率低
+      0.03, // 衰退也慢
+      {
+        role: candidate.role,
+        position: candidate.position,
+        team: candidate.team,
+        abilities: candidate.abilities,
+        bats: candidate.bats,
+        throws: candidate.throws,
+        nickname: candidate.nickname,
+        englishName: candidate.englishName,
+        sourceStats: { source: 'Legendary hero', name: candidate.name }
+      }
+    );
+  }
+
   inferTraits(stats, abilities) {
     const traits = [];
     if (stats.role === 'P') {
@@ -663,6 +670,43 @@ class Player {
     this.abilities = this.normalizeAbilities(meta.abilities);
     this.condition = meta.condition || 'normal';
     this.pitchTypes = Array.isArray(meta.pitchTypes) ? meta.pitchTypes : this.generatePitchTypes();
+
+    // v1.14：投手分工與恢復系統
+    // pitcherRole: 'SP'（先發） / 'RP'（後援） / null（非投手）
+    if (this.canPitch()) {
+      const pos = String(this.position || '');
+      if (meta.pitcherRole) this.pitcherRole = meta.pitcherRole;
+      else if (pos === 'SP') this.pitcherRole = 'SP';
+      else if (pos === 'RP') this.pitcherRole = 'RP';
+      else if (pos.includes('SP')) this.pitcherRole = 'SP';
+      else this.pitcherRole = 'RP';
+    } else {
+      this.pitcherRole = null;
+    }
+    // daysOfRest：距離上次登板的休息場數（越大越精神，理想：SP 4、RP 1）
+    this.daysOfRest = Number.isFinite(meta.daysOfRest) ? meta.daysOfRest : (this.pitcherRole === 'SP' ? 4 : 2);
+    // pitchedLastGame：上一場是否登板（給 SeasonManager 在賽後更新 daysOfRest 用）
+    this.pitchedLastGame = Boolean(meta.pitchedLastGame);
+  }
+
+  // v1.14：取得本投手的理想休息場數
+  idealRest() {
+    if (this.pitcherRole === 'SP') return 4;
+    if (this.pitcherRole === 'RP') return 1;
+    return 0;
+  }
+
+  // v1.14：是否處於疲勞登板（休息不足）狀態
+  isOverworked() {
+    if (!this.canPitch()) return false;
+    return this.daysOfRest < this.idealRest();
+  }
+
+  // v1.14：取得本投手場內體力上限（SP 體力長但恢復慢，RP 體力短但恢復快）
+  getStaminaCeiling() {
+    if (this.pitcherRole === 'SP') return 110;
+    if (this.pitcherRole === 'RP') return 60;
+    return this.maxStamina || 100;
   }
 
   normalizeAbilities(abilities = {}) {
@@ -830,7 +874,9 @@ class Player {
   }
 
   consumeStamina(amount) {
+    // v1.14：投手疲勞登板會多扣體力
     let multiplier = this.burnLifeActive ? 3 : 1;
+    if (this.canPitch() && this.isOverworked && this.isOverworked()) multiplier *= 1.4;
     this.state.stamina -= amount * multiplier;
     this.state.stamina = clampInt(this.state.stamina, 0, this.maxStamina);
   }
@@ -875,6 +921,11 @@ class Player {
     if (medicalCenter && playerIndex !== null) {
       effectiveProb = medicalCenter.getInjuryProbability(playerIndex);
       effectiveProb += CONDITION_EFFECTS[this.condition]?.injury || 0;
+    }
+    // v1.14：投手休息不足 → 受傷率上升
+    if (this.canPitch() && this.isOverworked && this.isOverworked()) {
+      const shortBy = this.idealRest() - this.daysOfRest;
+      effectiveProb += 0.015 * shortBy;
     }
     effectiveProb = Math.max(0, effectiveProb);
     if (Math.random() < effectiveProb) {
@@ -936,7 +987,7 @@ class GachaSystem {
       ...player,
       protected: (player.opsPlus || 0) >= 165 || (player.era && player.era <= 2.05)
     }));
-    this.internationalCandidates = INTERNATIONAL_STAR_CANDIDATES;
+    this.internationalCandidates = window.INTERNATIONAL_STAR_CANDIDATES || [];
   }
 
   drawPlayer(pool = 'local') {
@@ -1100,7 +1151,11 @@ class SaveManager {
         ageDecline: p.ageDecline,
         xp: p.xp,
         burnLifeActive: p.burnLifeActive,
-        protectionDuration: p.protectionDuration
+        protectionDuration: p.protectionDuration,
+        // v1.14
+        pitcherRole: p.pitcherRole,
+        daysOfRest: p.daysOfRest,
+        pitchedLastGame: p.pitchedLastGame
       })),
       activeLineup: {
         pitcher: game.roster.activeLineup.pitcher ? game.roster.players.indexOf(game.roster.activeLineup.pitcher) : null,
@@ -1121,6 +1176,7 @@ class SaveManager {
       defensiveAssignments: game.defensiveAssignments,
       rotationOrder: game.rotationOrder,
       rotationSlot: game.rotationSlot,
+      bullpenOrder: game.bullpenOrder, // v1.14
       scoutingReports: game.scoutingReports,
       baserunningMode: game.baserunningMode,
       offenseApproach: game.offenseApproach,
@@ -1130,7 +1186,12 @@ class SaveManager {
       leagueStandings: game.leagueStandings,
       managementLog: game.managementLog,
       currentSeasonEvent: game.currentSeasonEvent,
-      protectionBuffs: game.medicalCenter.protectionBuffs
+      protectionBuffs: game.medicalCenter.protectionBuffs,
+      // v1.14
+      playerShards: game.playerShards,
+      unlockedHeroes: game.unlockedHeroes,
+      collectedPlayerKeys: Array.from(game.collectedPlayerKeys || []),
+      majorRosterLimit: game.majorRosterLimit
     };
     localStorage.setItem('baseballGame', JSON.stringify(data));
   }
@@ -1169,7 +1230,11 @@ class SaveManager {
             throws: p.throws,
             condition: p.condition,
             pitchTypes: p.pitchTypes,
-            sourceStats: p.sourceStats
+            sourceStats: p.sourceStats,
+            // v1.14
+            pitcherRole: p.pitcherRole,
+            daysOfRest: p.daysOfRest,
+            pitchedLastGame: p.pitchedLastGame
           }
         );
         player.state.stamina = clampInt(p.state.stamina, 0, player.maxStamina);
@@ -1205,6 +1270,7 @@ class SaveManager {
       game.defensiveAssignments = data.defensiveAssignments || game.defensiveAssignments;
       game.rotationOrder = Array.isArray(data.rotationOrder) ? data.rotationOrder : game.rotationOrder;
       game.rotationSlot = data.rotationSlot || 0;
+      game.bullpenOrder = Array.isArray(data.bullpenOrder) ? data.bullpenOrder : []; // v1.14
       game.scoutingReports = data.scoutingReports || game.scoutingReports;
       game.baserunningMode = data.baserunningMode || game.baserunningMode;
       game.offenseApproach = data.offenseApproach || game.offenseApproach;
@@ -1214,6 +1280,13 @@ class SaveManager {
       game.leagueStandings = data.leagueStandings || game.leagueStandings;
       game.managementLog = data.managementLog || game.managementLog;
       game.currentSeasonEvent = data.currentSeasonEvent || game.currentSeasonEvent;
+      // v1.14
+      game.playerShards = Number.isFinite(data.playerShards) ? data.playerShards : 0;
+      game.unlockedHeroes = Array.isArray(data.unlockedHeroes) ? data.unlockedHeroes : [];
+      game.collectedPlayerKeys = new Set(Array.isArray(data.collectedPlayerKeys) ? data.collectedPlayerKeys : []);
+      // 補上：讓存檔之前已在隊上的球員也被列入已收集（避免老存檔抽到同名又入隊）
+      game.roster.players.forEach(p => game.collectedPlayerKeys.add(game.playerKey(p)));
+      if (Number.isFinite(data.majorRosterLimit)) game.majorRosterLimit = data.majorRosterLimit;
       game.normalizeManagementState();
     }
   }
@@ -1303,34 +1376,114 @@ class Game {
     this.pitchPlan = 'balanced';
     this.pickoffAttemptsThisHalf = 0;
     this.managementLog = [];
-    this.coaches = [
-      { id: 'hitting', name: '打擊教練', bonus: '巧打/長打 +2', hitting: 2, heat: 0 },
-      { id: 'pitching', name: '投手教練', bonus: '控球/球威 +2', pitching: 2, heat: 0 },
-      { id: 'defense', name: '守備教練', bonus: '守備 +3', defense: 3, heat: 0 },
-      { id: 'conditioning', name: '體能教練', bonus: '恢復力 +6，傷病風險下降', recovery: 6, heat: 0 },
-      { id: 'marketing', name: '人氣教練', bonus: '球場熱度 +8', heat: 8 }
-    ];
-    this.activeCoachId = 'hitting';
+    // v1.14：教練資料來自 data.js（COACHES_DATA）
+    this.coaches = Array.isArray(window.COACHES_DATA) && window.COACHES_DATA.length
+      ? window.COACHES_DATA.map(coach => ({ ...coach }))
+      : [
+          { id: 'hitting', name: '打擊教練', bonus: '巧打/長打 +2', hitting: 2, heat: 0 },
+          { id: 'pitching', name: '投手教練', bonus: '控球/球威 +2', pitching: 2, heat: 0 },
+          { id: 'defense', name: '守備教練', bonus: '守備 +3', defense: 3, heat: 0 },
+          { id: 'conditioning', name: '體能教練', bonus: '恢復力 +6，傷病風險下降', recovery: 6, heat: 0 },
+          { id: 'marketing', name: '人氣教練', bonus: '球場熱度 +8', heat: 8 }
+        ];
+    this.activeCoachId = this.coaches[0]?.id || 'hitting';
+    // v1.14：一軍上限（最多 22 人，可在這裡調整）
+    this.majorRosterLimit = 22;
+    // v1.14：碎片系統與已抽過名單
+    this.playerShards = 0;
+    this.collectedPlayerKeys = new Set();
+    this.unlockedHeroes = [];
     this.leagueStandings = this.createInitialStandings();
     this.currentSeasonEvent = null;
     this.crowdEnergy = 50;
     this.normalizeManagementState();
     this.currentSeasonEvent = { title: '開幕戰', text: '擴編球隊首次亮相，球迷期待值上升。' };
+    // v1.14：把已在隊上的球員都列入已收集，後續抽到同名就會變碎片
+    this.roster.players.forEach(p => this.collectedPlayerKeys.add(this.playerKey(p)));
+  }
+
+  // v1.14：球員唯一識別 key（國際巨星用 englishName，本土用 name + team）
+  playerKey(player) {
+    if (!player) return '';
+    if (player.englishName) return `intl:${player.englishName}`;
+    if (player.sourceStats?.source === 'International star preset') return `intl:${player.englishName || player.name}`;
+    if (player.traits?.includes && player.traits.includes('傳奇英雄')) return `legend:${player.name}`;
+    return `local:${player.name}`;
   }
 
   initialize7thTeamRoster() {
-    const defaultNames = ['張育成', '范國宸', '林安可', '陳晨威', '李凱威', '許基宏', '郭天信', '江坤宇', '羅戈', '威能帝', '林詩翔'];
+    // v1.14：使用 data.js 內的 INITIAL_ROSTER_SPEC 建立初始陣容
+    //   - 9 名固定守備位置的野手（C / 1B / 2B / 3B / SS / LF / CF / RF / DH）
+    //   - 數位候補野手
+    //   - 5 名先發投手 + 5 名後援投手
+    //
+    // 如果 data.js 抓不到，會 fallback 到舊版的簡略名單
     const sourcePlayers = [...this.statMapper.cpblBatters, ...this.statMapper.cpblPitchers];
-    defaultNames.forEach(name => {
-      const playerData = sourcePlayers.find(player => player.name === name);
-      if (!playerData) return;
+    const addedNames = new Set();
+
+    const addPlayer = (name, opts = {}) => {
+      const playerData = sourcePlayers.find(p => p.name === name);
+      if (!playerData) return false;
+      if (addedNames.has(playerData.name)) return false;
       const player = this.statMapper.createPlayerFromStats(playerData, {
-        growthPotential: playerData.role === 'P' ? 20 : 30,
-        injuryProbability: playerData.role === 'P' ? 0.04 : 0.025,
-        ageDecline: 0.01
+        growthPotential: opts.growthPotential ?? (playerData.role === 'P' ? 20 : 30),
+        injuryProbability: opts.injuryProbability ?? (playerData.role === 'P' ? 0.04 : 0.025),
+        ageDecline: opts.ageDecline ?? 0.01
       });
+      // v1.14：強制套上指定的 pitcherRole 與守位
+      if (opts.pitcherRole) player.pitcherRole = opts.pitcherRole;
+      if (opts.assignedPosition) player.position = opts.assignedPosition;
       this.roster.addPlayer(player);
-    });
+      addedNames.add(playerData.name);
+      return true;
+    };
+
+    const spec = window.INITIAL_ROSTER_SPEC;
+    if (spec && spec.fielders) {
+      // 1. 九守備位置
+      const positionOrder = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
+      positionOrder.forEach(pos => {
+        const wantedName = spec.fielders[pos];
+        if (wantedName && addPlayer(wantedName, { assignedPosition: pos })) return;
+        // fallback：從同位置池子裡找一個還沒加的野手
+        const candidate = this.statMapper.cpblBatters.find(p =>
+          !addedNames.has(p.name) && String(p.position).split('/').includes(pos)
+        ) || this.statMapper.cpblBatters.find(p => !addedNames.has(p.name));
+        if (candidate) addPlayer(candidate.name, { assignedPosition: pos });
+      });
+      // 2. 候補野手
+      (spec.bench || []).forEach(name => addPlayer(name));
+      // 3. 先發投手
+      (spec.rotation || []).forEach(name => addPlayer(name, { pitcherRole: 'SP' }));
+      // 補滿 5 位先發
+      while (this.roster.players.filter(p => p.canPitch() && p.pitcherRole === 'SP').length < 5) {
+        const candidate = this.statMapper.cpblPitchers.find(p =>
+          !addedNames.has(p.name) && (p.position === 'SP' || String(p.position).includes('SP'))
+        );
+        if (!candidate) break;
+        addPlayer(candidate.name, { pitcherRole: 'SP' });
+      }
+      // 4. 後援投手
+      (spec.bullpen || []).forEach(name => addPlayer(name, { pitcherRole: 'RP' }));
+      // 補滿 5 位後援
+      while (this.roster.players.filter(p => p.canPitch() && p.pitcherRole === 'RP').length < 5) {
+        const candidate = this.statMapper.cpblPitchers.find(p =>
+          !addedNames.has(p.name) && (p.position === 'RP' || String(p.position).includes('RP'))
+        );
+        if (!candidate) {
+          // 沒有純後援可挑就把先發抓來轉任後援（救援場面）
+          const fallback = this.statMapper.cpblPitchers.find(p => !addedNames.has(p.name));
+          if (!fallback) break;
+          addPlayer(fallback.name, { pitcherRole: 'RP' });
+        } else {
+          addPlayer(candidate.name, { pitcherRole: 'RP' });
+        }
+      }
+    } else {
+      // 沒有 data.js 時的最簡 fallback：和 v1.13 行為一致
+      const defaultNames = ['張育成', '范國宸', '林安可', '陳晨威', '李凱威', '許基宏', '郭天信', '江坤宇', '羅戈', '威能帝', '林詩翔'];
+      defaultNames.forEach(name => addPlayer(name));
+    }
   }
 
   generateOpponentTeam(teamName) {
@@ -1437,10 +1590,23 @@ class Game {
       : 0;
 
     this.rotationOrder = (this.rotationOrder || []).filter(index => pitcherIndexes.includes(index));
+    // v1.14：rotation 只放先發投手（pitcherRole === 'SP'）
+    this.rotationOrder = this.rotationOrder.filter(index => this.roster.players[index].pitcherRole === 'SP');
     pitcherIndexes.forEach(index => {
-      if (!this.rotationOrder.includes(index)) this.rotationOrder.push(index);
+      if (this.roster.players[index].pitcherRole === 'SP' && !this.rotationOrder.includes(index)) {
+        this.rotationOrder.push(index);
+      }
     });
     this.rotationSlot = this.rotationOrder.length ? this.rotationSlot % this.rotationOrder.length : 0;
+
+    // v1.14：牛棚（後援投手）獨立列表
+    if (!Array.isArray(this.bullpenOrder)) this.bullpenOrder = [];
+    this.bullpenOrder = this.bullpenOrder.filter(index => pitcherIndexes.includes(index) && this.roster.players[index].pitcherRole === 'RP');
+    pitcherIndexes.forEach(index => {
+      if (this.roster.players[index].pitcherRole === 'RP' && !this.bullpenOrder.includes(index)) {
+        this.bullpenOrder.push(index);
+      }
+    });
 
     if (!this.roster.activeLineup.pitcher || !this.roster.activeLineup.pitcher.canPitch()) {
       const firstPitcher = this.rotationOrder[0] ?? pitcherIndexes[0];
@@ -1458,6 +1624,7 @@ class Game {
   autoAssignDefense() {
     const assigned = {};
     const used = new Set();
+    // 1. 保留已有的合法分配
     this.defensiveSlots.forEach(slot => {
       const existing = this.defensiveAssignments?.[slot];
       if (existing !== undefined && this.playerBattingOrder.includes(existing) && !used.has(existing)) {
@@ -1466,6 +1633,22 @@ class Game {
       }
     });
 
+    // v1.14：2. 把主守位剛好等於空位的球員優先排上去（讓初始陣容的守位被尊重）
+    this.defensiveSlots.forEach(slot => {
+      if (assigned[slot] !== undefined) return;
+      const direct = this.playerBattingOrder.find(index => {
+        if (used.has(index)) return false;
+        const player = this.roster.players[index];
+        if (!player) return false;
+        return player.getPrimaryPositions().includes(slot);
+      });
+      if (direct !== undefined) {
+        assigned[slot] = direct;
+        used.add(direct);
+      }
+    });
+
+    // 3. 剩下用最小懲罰補上
     this.defensiveSlots.forEach(slot => {
       if (assigned[slot] !== undefined) return;
       const best = this.playerBattingOrder
@@ -1595,24 +1778,62 @@ class Game {
     return true;
   }
 
+  // v1.14：兩個守位之間互換球員（拖拽守位用）
+  swapDefenseSlots(fromSlot, toSlot) {
+    if (!this.defensiveSlots.includes(fromSlot) || !this.defensiveSlots.includes(toSlot)) return false;
+    if (fromSlot === toSlot) return false;
+    const fromIndex = this.defensiveAssignments[fromSlot];
+    const toIndex = this.defensiveAssignments[toSlot];
+    if (fromIndex === undefined && toIndex === undefined) return false;
+    if (toIndex === undefined) {
+      delete this.defensiveAssignments[fromSlot];
+      this.defensiveAssignments[toSlot] = fromIndex;
+    } else if (fromIndex === undefined) {
+      delete this.defensiveAssignments[toSlot];
+      this.defensiveAssignments[fromSlot] = toIndex;
+    } else {
+      this.defensiveAssignments[fromSlot] = toIndex;
+      this.defensiveAssignments[toSlot] = fromIndex;
+    }
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
   togglePlayerLevel(index) {
     const player = this.roster.players[index];
     if (!player) return false;
+    return this.setPlayerLevel(index, player.level === 'minor' ? 'major' : 'minor');
+  }
+
+  // v1.14：直接指定球員去一軍或二軍（給 UI 拖拽用）
+  setPlayerLevel(index, targetLevel) {
+    const player = this.roster.players[index];
+    if (!player) return false;
+    if (targetLevel !== 'major' && targetLevel !== 'minor') return false;
+    if (player.level === targetLevel) return false;
+
     const activeMajorCount = this.roster.players.filter(p => p.level !== 'minor').length;
-    if (player.level !== 'minor' && activeMajorCount <= 10) {
+    if (targetLevel === 'minor' && activeMajorCount <= 10) {
       this.addManagementLog('一軍人數太少，至少保留 10 人。');
       return false;
     }
-    player.level = player.level === 'minor' ? 'major' : 'minor';
-    if (player.level === 'minor') {
+    if (targetLevel === 'major' && activeMajorCount >= this.majorRosterLimit) {
+      this.addManagementLog(`一軍名額已滿（${this.majorRosterLimit} 人），請先下放球員。`);
+      return false;
+    }
+
+    player.level = targetLevel;
+    if (targetLevel === 'minor') {
       this.playerBattingOrder = this.playerBattingOrder.filter(i => i !== index);
       this.rotationOrder = this.rotationOrder.filter(i => i !== index);
+      this.bullpenOrder = (this.bullpenOrder || []).filter(i => i !== index);
       Object.keys(this.defensiveAssignments).forEach(slot => {
         if (this.defensiveAssignments[slot] === index) delete this.defensiveAssignments[slot];
       });
     }
     this.normalizeManagementState();
-    this.addManagementLog(`${player.name} 已移至${player.level === 'minor' ? '二軍' : '一軍'}。`);
+    this.addManagementLog(`${player.name} 已移至${targetLevel === 'minor' ? '二軍' : '一軍'}。`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1620,10 +1841,33 @@ class Game {
 
   selectStartingPitcher(index) {
     if (!this.roster.setActivePitcher(index)) return false;
+    const player = this.roster.players[index];
+    // v1.14：若不是 SP，給訊息提示但仍允許指定
+    if (player && player.pitcherRole !== 'SP') {
+      this.addManagementLog(`提示：${player.name} 是後援投手，臨時擔任先發體力可能不足。`);
+    }
+    // 不在 rotation 裡也插進去（救火 SP）
     const rotationIndex = this.rotationOrder.indexOf(index);
-    if (rotationIndex >= 0) this.rotationSlot = rotationIndex;
+    if (rotationIndex >= 0) {
+      this.rotationSlot = rotationIndex;
+    } else if (player && player.pitcherRole === 'SP') {
+      this.rotationOrder.push(index);
+      this.rotationSlot = this.rotationOrder.length - 1;
+    }
     this.pitcher = this.roster.players[index];
     this.addManagementLog(`賽前指定先發投手：${this.pitcher.name}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  // v1.14：比賽中換投（後援登板）
+  bringInReliever(index) {
+    const player = this.roster.players[index];
+    if (!player || !player.canPitch() || player.level === 'minor') return false;
+    this.roster.setActivePitcher(index);
+    this.pitcher = player;
+    this.addToLog(`【換投】${player.name} (${player.pitcherRole}) 登板！`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1782,7 +2026,7 @@ class Game {
     const runnerSpeed = target.runner.abilities?.speed || target.runner.physical.speed || 70;
     const pickoffSkill = (pitcher.abilities.pickoff || pitcher.abilities.control || 70) * 0.65 + (pitcher.abilities.quickDelivery || 70) * 0.35;
     const pickoffChance = Math.max(0.04, Math.min(0.18, 0.08 + (pickoffSkill - runnerSpeed) / 420));
-    pitcher.consumeStamina(1);
+    pitcher.consumeStamina(0.6); // v1.14：牽制扣 0.6
     if (Math.random() < pickoffChance) {
       runners[target.base] = null;
       this.recordOut();
@@ -1923,10 +2167,13 @@ class Game {
     // Update baseball diamond
     this.updateDiamondUI();
     updateDiamondRunners(); // PATCH: was this.updateDiamondRunners() but it's a global function
-    
+
     this.updateOpponentUI();
     this.updateBullpenUI();
     this.updateRosterUI();
+    // v1.14：碎片數量在 HUD / 商店顯示
+    const shardChip = document.getElementById('shard-count');
+    if (shardChip) shardChip.textContent = this.playerShards || 0;
   }
 
   updateDiamondUI() {
@@ -1946,8 +2193,31 @@ class Game {
 
   updateRosterUI() {
     const rosterDiv = document.getElementById('roster-gallery');
-    rosterDiv.innerHTML = '';
-    
+    if (!rosterDiv) return;
+
+    // v1.14：分一軍 / 二軍兩個區段
+    const majorCount = this.roster.players.filter(p => p.level !== 'minor').length;
+    rosterDiv.innerHTML = `
+      <div class="roster-sections">
+        <section class="roster-section major-section" data-target-level="major">
+          <header>
+            <h3>一軍 <span class="roster-count">${majorCount} / ${this.majorRosterLimit}</span></h3>
+            <p>拖拽球員到此區可升上一軍（一軍球員才能參賽）</p>
+          </header>
+          <div class="roster-section-cards" id="roster-major" ondragover="event.preventDefault();" ondrop="dropRosterLevel(event, 'major')"></div>
+        </section>
+        <section class="roster-section minor-section" data-target-level="minor">
+          <header>
+            <h3>二軍 <span class="roster-count">${this.roster.players.length - majorCount}</span></h3>
+            <p>拖拽球員到此區會下放二軍（也會自動執行二軍恢復）</p>
+          </header>
+          <div class="roster-section-cards" id="roster-minor" ondragover="event.preventDefault();" ondrop="dropRosterLevel(event, 'minor')"></div>
+        </section>
+      </div>`;
+
+    const majorBox = document.getElementById('roster-major');
+    const minorBox = document.getElementById('roster-minor');
+
     this.roster.players.forEach((p, i) => {
       const rank = p.getRank();
       const abilityPairs = p.canPitch() && p.role === 'P'
@@ -1957,21 +2227,25 @@ class Game {
       const lineupSpot = this.playerBattingOrder.indexOf(i);
       const assignedPosition = this.getAssignedPosition(i);
       const positionPenalty = p.getPositionPenalty(assignedPosition);
+      const roleTag = p.canPitch() ? (p.pitcherRole === 'SP' ? '先發' : '後援') : '';
+      const restTag = (p.canPitch() && p.idealRest) ? `休 ${p.daysOfRest ?? 0}/${p.idealRest()}${p.isOverworked && p.isOverworked() ? ' ⚠' : ''}` : '';
       const card = document.createElement('div');
-      card.className = 'trading-card';
-      
-      // Create card HTML
+      card.className = 'trading-card' + (p.level === 'minor' ? ' minor-card' : '');
+      card.draggable = true;
+      card.dataset.playerIndex = i;
+      card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', String(i)); };
+
       card.innerHTML = `
-        <div class="card-rank-badge badge-${rank.toLowerCase()}">
-          ${rank}
-        </div>
+        <div class="card-rank-badge badge-${rank.toLowerCase()}">${rank}</div>
         ${createPixelPortrait(p, 58)}
         <div class="card-name">${p.name}</div>
         <div class="card-meta">
           <span>${p.getRoleLabel()}</span>
+          ${roleTag ? `<span>${roleTag}</span>` : ''}
           <span>${p.getPositionLabel()}</span>
           <span>${p.level === 'minor' ? '二軍' : '一軍'}</span>
           <span>調子 ${getConditionLabel(p.condition)}</span>
+          ${restTag ? `<span>${restTag}</span>` : ''}
           <span>${sourceLine}</span>
           ${p.traits.slice(0, 4).map(trait => `<span class="trait-pill trait-${getTraitTier(trait)}" title="${getTraitDescription(trait)}">${trait}</span>`).join('')}
           ${lineupSpot >= 0 ? `<span>第 ${lineupSpot + 1} 棒</span>` : ''}
@@ -1985,27 +2259,22 @@ class Game {
           <span>HP: ${clampInt(p.state.stamina)}/${p.maxStamina}</span>
         </div>
         <div class="card-buttons">
-          <button class="card-btn card-btn-pitcher" onclick="setActivePitcher(${i})" ${p.canPitch() ? '' : 'disabled'}>P</button>
-          <button class="card-btn card-btn-batter" onclick="setActiveBatter(${i})" ${p.canBat() ? '' : 'disabled'}>B</button>
-          <button class="card-btn card-btn-small" onclick="moveLineup(${i}, -1)" ${lineupSpot > 0 ? '' : 'disabled'}>↑</button>
-          <button class="card-btn card-btn-small" onclick="moveLineup(${i}, 1)" ${lineupSpot >= 0 && lineupSpot < this.playerBattingOrder.length - 1 ? '' : 'disabled'}>↓</button>
-          <button class="card-btn card-btn-defense" onclick="cycleDefense(${i})" ${p.canBat() ? '' : 'disabled'}>守位</button>
-          <button class="card-btn card-btn-level" onclick="togglePlayerLevel(${i})">${p.level === 'minor' ? '升一軍' : '下二軍'}</button>
           <button class="card-btn card-btn-detail" onclick="openPlayerDetail(${i})">詳細</button>
+          <button class="card-btn card-btn-level" onclick="togglePlayerLevel(${i})">${p.level === 'minor' ? '升一軍' : '下二軍'}</button>
         </div>
       `;
-      
-      rosterDiv.appendChild(card);
-      
-      // Add radar chart SVG to card
+
       const radarDiv = document.createElement('div');
       radarDiv.style.textAlign = 'center';
       radarDiv.style.marginBottom = '8px';
       radarDiv.appendChild(createRadarChart(p));
-      
-      // Insert radar chart after card name
-      const cardName = card.querySelector('.card-name');
-      cardName.parentNode.insertBefore(radarDiv, cardName.nextSibling);
+      const cardName = card.querySelector ? card.querySelector('.card-name') : null;
+      if (cardName && cardName.parentNode) {
+        cardName.parentNode.insertBefore(radarDiv, cardName.nextSibling);
+      }
+
+      const target = (p.level === 'minor' ? minorBox : majorBox);
+      if (target && target.appendChild) target.appendChild(card);
     });
   }
 
@@ -2048,15 +2317,33 @@ class Game {
 
   updateBullpenUI() {
     const bullpenDiv = document.getElementById('bullpen');
+    if (!bullpenDiv) return;
+    // v1.14：分先發 / 後援兩段顯示
     const pitchers = this.roster.players
       .map((p, i) => ({ p, i }))
-      .filter(({ p }) => p.canPitch());
-    bullpenDiv.innerHTML = pitchers.map(({ p, i }) => `
-      <div class="mb-2">
-        <span class="font-semibold">${p.name}</span> - ${p.position} Sta ${clampInt(p.state.stamina)}/${p.maxStamina}
-        <button onclick="setActivePitcher(${i})" class="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs ml-2">Sub</button>
-      </div>
-    `).join('') || '<p>No bullpen available.</p>';
+      .filter(({ p }) => p.canPitch() && p.level !== 'minor');
+    const renderRow = ({ p, i }) => {
+      const ideal = p.idealRest ? p.idealRest() : 0;
+      const rest = p.daysOfRest ?? 0;
+      const tired = p.isOverworked && p.isOverworked();
+      const restTag = ideal ? `休 ${rest}/${ideal}${tired ? ' ⚠' : ''}` : '';
+      const roleTag = p.pitcherRole === 'SP' ? '先發' : p.pitcherRole === 'RP' ? '後援' : '投手';
+      return `
+        <div class="bullpen-row ${tired ? 'tired' : ''}">
+          <div>
+            <strong>${p.name}</strong>
+            <small>${roleTag}・體 ${clampInt(p.state.stamina)}/${p.maxStamina}・${restTag}</small>
+          </div>
+          <button onclick="bringInReliever(${i})" class="bullpen-btn">登板</button>
+        </div>`;
+    };
+    const sps = pitchers.filter(x => x.p.pitcherRole === 'SP');
+    const rps = pitchers.filter(x => x.p.pitcherRole === 'RP');
+    bullpenDiv.innerHTML =
+      `<h4 class="bullpen-section">先發輪值</h4>` +
+      (sps.length ? sps.map(renderRow).join('') : '<p class="pregame-note">無先發投手</p>') +
+      `<h4 class="bullpen-section">後援牛棚</h4>` +
+      (rps.length ? rps.map(renderRow).join('') : '<p class="pregame-note">無後援投手</p>');
   }
 
   resetCount() {
@@ -2224,8 +2511,27 @@ class Game {
   recoverPlayersBetweenGames() {
     const recoveryBonus = this.getTeamBonuses().recovery || 0;
     this.roster.players.forEach(player => {
-      const recovery = (player.level === 'minor' ? 45 : (player.canPitch() ? 24 : 32)) + recoveryBonus;
-      player.state.stamina = clampInt(player.state.stamina + recovery, 0, player.maxStamina);
+      // v1.14：先處理投手場間恢復
+      if (player.canPitch()) {
+        // 上場過的投手：歸零休息天數；沒上場的：休息 +1
+        if (player.pitchedLastGame) {
+          player.daysOfRest = 0;
+          player.pitchedLastGame = false;
+        } else {
+          player.daysOfRest = Math.min(7, (player.daysOfRest || 0) + 1);
+        }
+        // 體力恢復隨身分：SP 慢、RP 快
+        let recovery;
+        if (player.pitcherRole === 'SP') recovery = 22 + recoveryBonus;
+        else if (player.pitcherRole === 'RP') recovery = 45 + recoveryBonus;
+        else recovery = 30 + recoveryBonus;
+        if (player.level === 'minor') recovery += 18;
+        player.state.stamina = clampInt(player.state.stamina + recovery, 0, player.maxStamina);
+      } else {
+        // 野手：照舊 32 點恢復
+        const recovery = (player.level === 'minor' ? 45 : 32) + recoveryBonus;
+        player.state.stamina = clampInt(player.state.stamina + recovery, 0, player.maxStamina);
+      }
       player.state.mana = clampInt(player.state.mana + 25, 0, player.maxMana);
       player.state.fatigue = clampInt(player.state.fatigue - 12, 0, 100);
       player.rollCondition();
@@ -2238,21 +2544,56 @@ class Game {
   }
 
   drawPlayer(pool = 'local') {
-    if (this.currency >= 100) {
-      this.currency -= 100;
-      const player = this.gacha.drawPlayer(pool);
+    if (this.currency < 100) {
+      this.addManagementLog(i18n.notEnoughCurrency);
+      return;
+    }
+    this.currency -= 100;
+    const player = this.gacha.drawPlayer(pool);
+    const key = this.playerKey(player);
+    // v1.14：抽到已收集的球員 → 轉換成碎片
+    if (this.collectedPlayerKeys.has(key)) {
+      const shardGain = pool === 'international' ? 8 : 5;
+      this.playerShards += shardGain;
+      this.addManagementLog(`抽到重複球員 ${player.name}，轉換成 ${shardGain} 枚球員碎片！（總共 ${this.playerShards}）`);
+      this.updateExpansionPreview(player, { duplicate: true, shardGain });
+    } else {
       this.roster.addPlayer(player);
+      this.collectedPlayerKeys.add(key);
       this.normalizeManagementState();
       this.addManagementLog(`${i18n.recruited} ${player.name} (${pool === 'local' ? i18n.localTalent : i18n.internationalStar})!`);
-      this.saveManager.save(this);
       this.updateExpansionPreview(player);
-      this.updateUI();
-    } else {
-      this.addManagementLog(i18n.notEnoughCurrency);
     }
+    this.saveManager.save(this);
+    this.updateUI();
+    if (typeof renderShardShop === 'function') renderShardShop();
   }
 
-  updateExpansionPreview(player) {
+  // v1.14：用碎片兌換傳奇英雄
+  redeemHero(heroIndex) {
+    const heroes = Array.isArray(window.LEGENDARY_HERO_CANDIDATES) ? window.LEGENDARY_HERO_CANDIDATES : [];
+    const hero = heroes[heroIndex];
+    if (!hero) return { success: false, message: '無效的英雄索引。' };
+    if (this.unlockedHeroes.includes(hero.name)) {
+      return { success: false, message: `${hero.name} 已經在隊上了。` };
+    }
+    if (this.playerShards < hero.shardCost) {
+      return { success: false, message: `碎片不足，需要 ${hero.shardCost} 枚，目前 ${this.playerShards}。` };
+    }
+    this.playerShards -= hero.shardCost;
+    const player = this.statMapper.createLegendaryHero(hero);
+    this.roster.addPlayer(player);
+    this.unlockedHeroes.push(hero.name);
+    this.collectedPlayerKeys.add(`legend:${hero.name}`);
+    this.normalizeManagementState();
+    this.addManagementLog(`⭐ 傳奇英雄登場：${hero.name}「${hero.nickname}」加入第七隊！`);
+    this.saveManager.save(this);
+    this.updateUI();
+    if (typeof renderShardShop === 'function') renderShardShop();
+    return { success: true, message: `${hero.name} 已加入！` };
+  }
+
+  updateExpansionPreview(player, options = {}) {
     const previewDiv = document.getElementById('expansion-preview');
     if (!previewDiv) return;
 
@@ -2263,10 +2604,15 @@ class Game {
       ? [['球速', player.abilities.velocity], ['控球', player.abilities.control], ['變化', player.abilities.breaking], ['體力', player.abilities.stamina], ['守備', player.abilities.fielding], ['精神', player.abilities.discipline]]
       : [['巧打', player.abilities.contact], ['長打', player.abilities.power], ['走力', player.abilities.speed], ['守備', player.abilities.fielding], ['肩力', player.abilities.arm], ['選球', player.abilities.discipline]];
 
+    const dupBanner = options.duplicate
+      ? `<div class="duplicate-banner">重複！+${options.shardGain || 0} 碎片</div>`
+      : '';
+
     card.innerHTML = `
       <div class="card-rank-badge badge-${rank.toLowerCase()}">
         ${rank}
       </div>
+      ${dupBanner}
       <div class="card-name">${player.name}</div>
       <div class="card-meta">
         <span>${player.getRoleLabel()}</span>
@@ -2580,6 +2926,11 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
   const battingTeam = matchup.battingTeam;
   let tempBoostedPlayer = null;
 
+  // v1.14：本方投手登板的話標記，這樣場間恢復才知道誰累
+  if (battingTeam === 'opponent' && pitcher.canPitch && pitcher.canPitch()) {
+    pitcher.pitchedLastGame = true;
+  }
+
   if (burnLife) {
     if (battingTeam === 'opponent') {
       pitcher.burnLifeActive = true;
@@ -2596,6 +2947,15 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
   let vel = pitcher.getEffectiveVelocity();
   let ctrl = pitcher.getEffectiveControl();
   let breaking = pitcher.abilities?.breaking || ctrl;
+  // v1.14：疲勞登板（休息不足）能力打折，且 stuff/控球下修
+  if (battingTeam === 'opponent' && pitcher.isOverworked && pitcher.isOverworked()) {
+    const shortBy = pitcher.idealRest() - pitcher.daysOfRest;
+    const penalty = 4 + shortBy * 3;
+    vel -= penalty;
+    ctrl -= penalty;
+    breaking -= penalty;
+    game.addToLog(`【疲勞登板】${pitcher.name} 休息不足 (${pitcher.daysOfRest}/${pitcher.idealRest()})，能力下降。`);
+  }
   let contact = batter.abilities?.contact || batter.physical.control;
   let pow = batter.getEffectivePower();
   let spd = batter.abilities?.speed || batter.physical.speed;
@@ -2740,8 +3100,8 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
     const inZone = Math.random() < zoneProb;
     const swings = inZone || Math.random() < swingProb;
 
-    pitcher.consumeStamina(burnLife && battingTeam === 'opponent' ? 3 : 2);
-    batter.consumeStamina(burnLife && battingTeam === 'player' ? 2 : 1);
+    pitcher.consumeStamina(burnLife && battingTeam === 'opponent' ? 2 : 1);   // v1.14：1球扣1（燃燒生命時 ×3）
+    batter.consumeStamina(burnLife && battingTeam === 'player' ? 0.8 : 0.4);   // v1.14：打者消耗更小
 
     if (!swings) {
       balls++;
@@ -2767,40 +3127,42 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
       continue;
     }
 
-    let hitRand = Math.random() + gaussianRandom(0, 0.08);
-    hitRand += slugPlanMod + (pow - 78) / 360 + (spd - 75) / 500;
-    if (battingTeam === 'opponent') hitRand += game.getTeamDefenseModifier() / 140;
+    // v1.14：高斯雜訊標準差降低、速度修正權重減半，讓三壘安打不再過量
+    let hitRand = Math.random() + gaussianRandom(0, 0.06);
+    hitRand += slugPlanMod + (pow - 78) / 380 + (spd - 75) / 1100;
+    if (battingTeam === 'opponent') hitRand += game.getTeamDefenseModifier() / 160;
     if (shadowClone) hitRand -= 0.2;
 
     game.balls = balls;
     game.strikes = strikes;
 
-    if (hitRand < 0.32) {
+    if (hitRand < 0.34) {
       game.recordOut();
       game.resetCount();
       game.addCommentary(i18n.groundOut, batter, shadowClone);
       return finishAtBat(i18n.groundOut);
     }
-    if (hitRand < 0.52) {
+    if (hitRand < 0.56) {
       game.trySacrificeFly(battingTeam, batter);
       game.recordOut();
       game.resetCount();
       game.addCommentary(i18n.flyOut, batter, shadowClone);
       return finishAtBat(i18n.flyOut);
     }
-    if (hitRand < 0.76) {
+    // v1.14：再平衡安打分布。安打中 1B ≈ 64%、2B ≈ 25%、3B ≈ 3%、HR ≈ 8%
+    if (hitRand < 0.84) {
       game.advanceRunners(i18n.single, battingTeam, batter);
       game.addCommentary(i18n.single, batter, shadowClone);
       game.resetCount();
       return finishAtBat(i18n.single);
     }
-    if (hitRand < 0.88) {
+    if (hitRand < 0.95) {
       game.advanceRunners(i18n.double, battingTeam, batter);
       game.addCommentary(i18n.double, batter, shadowClone);
       game.resetCount();
       return finishAtBat(i18n.double);
     }
-    if (hitRand < 0.95) {
+    if (hitRand < 0.965) {
       game.advanceRunners(i18n.triple, battingTeam, batter);
       game.addCommentary(i18n.triple, batter, shadowClone);
       game.resetCount();
@@ -2947,6 +3309,27 @@ function togglePlayerLevel(index) {
 function buyScoutReport(pool) {
   game.buyScoutReport(pool);
   if (typeof renderGachaPoolPreview === 'function') renderGachaPoolPreview();
+}
+
+// v1.14：比賽中換投（牛棚登板）
+function bringInReliever(index) {
+  game.bringInReliever(index);
+}
+
+// v1.14：碎片商店兌換傳奇英雄
+function redeemHero(heroIndex) {
+  const result = game.redeemHero(heroIndex);
+  if (typeof renderShardShop === 'function') renderShardShop();
+  return result;
+}
+
+// v1.14：拖拽球員卡片到一軍 / 二軍區
+function dropRosterLevel(event, targetLevel) {
+  event.preventDefault();
+  const raw = event.dataTransfer?.getData('text/plain');
+  const index = Number(raw);
+  if (!Number.isInteger(index)) return;
+  game.setPlayerLevel(index, targetLevel);
 }
 
 function showMatchSummary(result, playerScore, opponentScore, currency, heatReward = 0, standingsHTML = '') {
