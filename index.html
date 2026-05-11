@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CPBL 第七隊擴張模擬</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="app-shell">
+      <header class="hud-bar">
+        <button class="brand-lockup" type="button" data-scene="lobby" aria-label="返回大廳">
+          <span class="brand-mark">7</span>
+          <span>
+            <strong>CPBL EXPANSION</strong>
+            <small>第七隊 GM 模擬</small>
+          </span>
+        </button>
+        <div class="hud-stats" aria-label="球隊狀態">
+          <div class="hud-chip">
+            <span>SP</span>
+            <strong id="currency">0</strong>
+          </div>
+          <div class="hud-chip">
+            <span>戰績</span>
+            <strong id="season-record">0-0</strong>
+          </div>
+          <div class="hud-chip">
+            <span>賽程</span>
+            <strong><span id="upcoming-match">1</span>/<span id="season-length">30</span></strong>
+          </div>
+          <div class="hud-chip hud-chip-wide">
+            <span>對手</span>
+            <strong id="opponent-name">CPBL</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="stage">
+        <section id="scene-lobby" class="scene active" aria-labelledby="lobby-title">
+          <div class="lobby-grid">
+            <div class="lobby-copy">
+              <p class="eyebrow">Stadium Night Broadcast</p>
+              <h1 id="lobby-title">第七隊擴張計畫</h1>
+              <p class="lobby-subtitle">用球探點數、戰術卡與防護中心經營一支假想新軍，挑戰三十場賽季。</p>
+              <div class="lobby-actions" aria-label="主要場景">
+                <button class="lobby-action primary" type="button" data-scene="pregame">
+                  <span class="action-code">PLAY</span>
+                  <strong>開始賽程</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="roster">
+                  <span class="action-code">TEAM</span>
+                  <strong>球隊管理</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="shop">
+                  <span class="action-code">SCOUT</span>
+                  <strong>擴張中心</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="medical">
+                  <span class="action-code">CARE</span>
+                  <strong>防護中心</strong>
+                </button>
+              </div>
+            </div>
+            <div class="stadium-plate" aria-hidden="true">
+              <svg viewBox="0 0 560 420" role="img">
+                <defs>
+                  <linearGradient id="field-glow" x1="0" x2="1" y1="0" y2="1">
+                    <stop offset="0" stop-color="#4ade80"/>
+                    <stop offset="1" stop-color="#60a5fa"/>
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="560" height="420" rx="28" fill="#111827"/>
+                <path d="M70 330 Q280 90 490 330 Z" fill="#10251e" stroke="#2dd4bf" stroke-width="3"/>
+                <path d="M280 100 L470 300 L280 390 L90 300 Z" fill="url(#field-glow)" opacity=".82"/>
+                <path d="M280 136 L430 295 L280 362 L130 295 Z" fill="#7c4a28" opacity=".88"/>
+                <path d="M280 165 L380 285 L280 328 L180 285 Z" fill="#13231b"/>
+                <g fill="#f8fafc">
+                  <rect x="273" y="322" width="16" height="16" transform="rotate(45 281 330)"/>
+                  <rect x="375" y="278" width="16" height="16" transform="rotate(45 383 286)"/>
+                  <rect x="273" y="158" width="16" height="16" transform="rotate(45 281 166)"/>
+                  <rect x="169" y="278" width="16" height="16" transform="rotate(45 177 286)"/>
+                </g>
+                <g stroke="#fbbf24" stroke-width="5" stroke-linecap="round" opacity=".9">
+                  <path d="M86 88 H205"/>
+                  <path d="M355 88 H474"/>
+                </g>
+                <g fill="#fbbf24" font-family="Bebas Neue, sans-serif" font-size="44">
+                  <text x="104" y="78">CPBL</text>
+                  <text x="376" y="78">2030</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <section id="pregame-tab" class="scene" aria-labelledby="pregame-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Pre-game Room</p>
+              <h2 id="pregame-title">賽前準備</h2>
+            </div>
+            <div class="header-actions">
+              <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+              <button class="back-button primary" type="button" data-scene="match">開始比賽</button>
+            </div>
+          </div>
+          <div class="pregame-grid">
+            <section class="side-panel">
+              <h3>對方先發與打線</h3>
+              <div id="pregame-opponent"></div>
+            </section>
+            <section class="side-panel">
+              <h3>我方輪值</h3>
+              <div id="pregame-rotation"></div>
+            </section>
+            <section class="side-panel">
+              <h3>今日先發打線</h3>
+              <div id="pregame-lineup"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="game-tab" class="scene" aria-labelledby="match-title">
+          <div id="diamond-container" class="baseball-diamond"></div>
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Live Match</p>
+              <h2 id="match-title">進入比賽</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+
+          <div class="match-grid">
+            <section class="scoreboard-panel" aria-label="比賽資訊">
+              <div class="score-row">
+                <div>
+                  <span>第七隊</span>
+                  <strong id="score-player">0</strong>
+                </div>
+                <div>
+                  <span>對手</span>
+                  <strong id="score-opponent">0</strong>
+                </div>
+              </div>
+              <div class="control-row" aria-label="比賽操作">
+                <button id="normal-pitch" class="control-button primary" type="button">正常投球</button>
+                <button id="magic-pitch" class="control-button danger" type="button">燃燒生命</button>
+                <button id="auto-sim" class="control-button" type="button">模擬打席</button>
+                <button id="pickoff" class="control-button warning" type="button">牽制</button>
+                <button id="baserunning-mode" class="control-button ghost" type="button">跑壘：普通</button>
+                <button id="auto-toggle" class="control-button" type="button">自動模擬</button>
+                <button id="toggle-weather" class="control-button ghost" type="button">切換天氣</button>
+              </div>
+              <div class="count-grid">
+                <div><span>局</span><strong><span id="inning">1</span> <span id="half">下半局</span></strong></div>
+                <div><span>B</span><strong id="balls">0</strong></div>
+                <div><span>S</span><strong id="strikes">0</strong></div>
+                <div><span>O</span><strong id="outs">0</strong></div>
+                <div><span>壘上</span><strong id="runners">無</strong></div>
+                <div><span>天氣</span><strong id="weather">晴天</strong></div>
+                <div><span>魔力</span><strong id="mana">100</strong></div>
+                <div><span>戰術</span><strong id="current-tactic">正常</strong></div>
+              </div>
+              <div class="live-panel">
+                <div>
+                  <span>攻守</span>
+                  <strong id="matchup-text">第七隊守備</strong>
+                </div>
+                <div>
+                  <span>投手</span>
+                  <strong id="current-pitcher">-</strong>
+                </div>
+                <div>
+                  <span>打者</span>
+                  <strong id="current-batter">-</strong>
+                </div>
+                <div>
+                  <span>球場熱度</span>
+                  <strong><span id="crowd-energy">50</span>%</strong>
+                </div>
+              </div>
+              <div class="season-event-bar">
+                <span>賽季事件</span>
+                <strong id="season-event">尚無事件</strong>
+              </div>
+              <div id="pitcher-stamina" class="pitcher-stamina"></div>
+              <div class="spellbook">
+                <h3>戰術卡片</h3>
+                <div id="cards" class="card-hand"></div>
+              </div>
+            </section>
+
+            <section class="log-panel" aria-label="實況轉播">
+              <h3>實況轉播</h3>
+              <div id="play-log" class="play-log"></div>
+            </section>
+
+            <aside class="match-side" aria-label="對手資訊">
+              <div class="side-panel">
+                <h3>我方打序</h3>
+                <div id="player-lineup"></div>
+              </div>
+              <div class="side-panel">
+                <h3>對手打序</h3>
+                <div id="opponent-lineup"></div>
+              </div>
+              <div class="side-panel">
+                <h3>下一輪打者</h3>
+                <div id="upcoming-batters"></div>
+              </div>
+              <div class="side-panel">
+                <h3>牛棚</h3>
+                <div id="bullpen"></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="roster-tab" class="scene" aria-labelledby="roster-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Trading Card Vault</p>
+              <h2 id="roster-title">球隊管理</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div id="roster-gallery" class="roster-gallery"></div>
+        </section>
+
+        <section id="shop-tab" class="scene" aria-labelledby="shop-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Expansion Center</p>
+              <h2 id="shop-title">擴張中心</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div class="shop-grid">
+            <article class="pool-card local">
+              <div>
+                <p class="eyebrow">Local Talent</p>
+                <h3>本地新秀池</h3>
+                <p>低初始值、高成長潛力，適合長線養成。</p>
+                <button id="scout-local" class="mini-action" type="button" onclick="buyScoutReport('local')">球探報告 50 SP</button>
+                <div id="local-pool-list" class="pool-list" aria-label="本地新秀可能名單"></div>
+              </div>
+              <button id="draw-local" class="control-button primary" type="button">抽取本地新秀 100 SP</button>
+            </article>
+            <article class="pool-card international">
+              <div>
+                <p class="eyebrow">International Star</p>
+                <h3>國際巨星池</h3>
+                <p>高能力即戰力，但年齡衰退與傷病風險更高。</p>
+                <button id="scout-international" class="mini-action" type="button" onclick="buyScoutReport('international')">球探報告 50 SP</button>
+                <div id="international-pool-list" class="pool-list" aria-label="國際巨星可能名單"></div>
+              </div>
+              <button id="draw-international" class="control-button accent" type="button">抽取國際巨星 100 SP</button>
+            </article>
+            <section class="preview-panel">
+              <h3>最新招募</h3>
+              <div id="expansion-preview" class="expansion-preview"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="medical-tab" class="scene" aria-labelledby="medical-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Medical Center</p>
+              <h2 id="medical-title">防護中心</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div class="medical-layout">
+            <div id="medical-list" class="medical-list"></div>
+            <div class="medical-ledger">
+              <h3>防護項目</h3>
+              <div class="ledger-row">
+                <span>物理治療</span>
+                <strong>200 SP</strong>
+              </div>
+              <div class="ledger-row">
+                <span>傷病預防</span>
+                <strong>150 SP</strong>
+              </div>
+              <div id="medical-toast" class="medical-toast" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="season-tab" class="scene legacy-scene" aria-hidden="true"></section>
+      </main>
+    </div>
+  </div>
+
+  <div id="match-summary-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="summary-result">
+    <div class="modal-box">
+      <button class="modal-close" type="button" onclick="closeSummary()" aria-label="關閉">×</button>
+      <h2 id="summary-result">賽後摘要</h2>
+      <p id="summary-score"></p>
+      <p id="summary-reward"></p>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script>
+    Object.assign(i18n, {
+      enterMatch: '進入比賽',
+      teamManagement: '球隊管理',
+      expansionCenter: '擴張中心',
+      medicalCenterShort: '防護中心',
+      backToLobby: '返回大廳',
+      physicalTherapy: '物理治療',
+      injuryPrevention: '傷病預防',
+      healed: '已治療',
+      protected: '保護中',
+      injuryRiskLabel: '傷病風險',
+      protectedFor: '保護剩餘',
+      matchesShort: '場',
+      healthy: '健康'
+    });
+
+    const SCENE_ID = {
+      lobby: 'scene-lobby',
+      pregame: 'pregame-tab',
+      match: 'game-tab',
+      roster: 'roster-tab',
+      shop: 'shop-tab',
+      medical: 'medical-tab'
+    };
+    let currentScene = 'lobby';
+
+    function sceneElement(name) {
+      return document.getElementById(SCENE_ID[name]);
+    }
+
+    function mountScene(name) {
+      if (name === 'medical') renderMedicalScene();
+      if (name === 'pregame') renderPregameScene();
+      if (name === 'match') game.updateUI();
+      if (name === 'shop') renderGachaPoolPreview();
+      syncDerivedUI();
+    }
+
+    function changeScene(name) {
+      if (!SCENE_ID[name] || name === currentScene) return;
+      const current = sceneElement(currentScene);
+      const next = sceneElement(name);
+      if (!current || !next) return;
+
+      current.classList.add('scene-exit');
+      window.setTimeout(() => {
+        current.classList.remove('active', 'scene-exit');
+        next.classList.add('active', 'scene-enter');
+        currentScene = name;
+        mountScene(name);
+        window.setTimeout(() => next.classList.remove('scene-enter'), 340);
+      }, 224);
+    }
+
+    window.changeScene = changeScene;
+    window.showTab = function(tabName) {
+      const map = { game: 'pregame', roster: 'roster', shop: 'shop', season: 'pregame' };
+      changeScene(map[tabName] || 'lobby');
+    };
+
+    document.addEventListener('click', (event) => {
+      const trigger = event.target.closest('[data-scene]');
+      if (trigger) changeScene(trigger.dataset.scene);
+    });
+
+    const originalAddCommentary = game.addCommentary.bind(game);
+    game.addCommentary = function(outcomeKey, player, cardActive) {
+      if (currentScene !== 'match') return;
+      return originalAddCommentary(outcomeKey, player, cardActive);
+    };
+
+    const originalUpdateUI = game.updateUI.bind(game);
+    game.updateUI = function() {
+      const result = originalUpdateUI();
+      syncDerivedUI();
+      return result;
+    };
+
+    function syncDerivedUI() {
+      const opponentName = document.getElementById('opponent-name');
+      if (opponentName) {
+        opponentName.textContent = game.currentOpponent || game.opponentTeam?.name || 'CPBL';
+      }
+
+      const pitcherPanel = document.getElementById('pitcher-stamina');
+      if (pitcherPanel) {
+        const pitcher = game.roster.activeLineup.pitcher || game.pitcher;
+        const stamina = Math.max(0, Math.round(pitcher.state.stamina));
+        const max = Math.max(1, pitcher.maxStamina || 100);
+        const pct = Math.max(0, Math.min(100, Math.round((stamina / max) * 100)));
+        pitcherPanel.innerHTML = `
+          <div class="pitcher-row">
+            <span>${pitcher.name}</span>
+            <strong>${stamina}/${max}</strong>
+          </div>
+          <div class="meter"><span style="width:${pct}%"></span></div>
+        `;
+      }
+
+      document.querySelectorAll('#draw-local, #draw-international').forEach((button) => {
+        button.disabled = game.currency < 100;
+      });
+      [['local', '本地報告已解鎖'], ['international', '國際報告已解鎖']].forEach(([pool, label]) => {
+        const button = document.getElementById(`scout-${pool}`);
+        if (!button) return;
+        button.textContent = game.scoutingReports?.[pool] ? label : '球探報告 50 SP';
+        button.disabled = Boolean(game.scoutingReports?.[pool]);
+      });
+      const normalPitch = document.getElementById('normal-pitch');
+      const magicPitch = document.getElementById('magic-pitch');
+      const autoSim = document.getElementById('auto-sim');
+      const pickoff = document.getElementById('pickoff');
+      const baserunning = document.getElementById('baserunning-mode');
+      if (normalPitch && magicPitch && autoSim) {
+        const offense = game.currentHalf === 'bottom';
+        normalPitch.textContent = offense ? '進攻打席' : '守備投球';
+        magicPitch.textContent = offense ? '強攻揮擊' : '燃燒生命';
+        autoSim.textContent = offense ? '模擬進攻' : '模擬守備';
+        if (pickoff) pickoff.disabled = offense || !game.getCurrentRunners().some(Boolean);
+        if (baserunning) baserunning.textContent = `跑壘：${game.getBaserunningLabel?.() || '普通'}`;
+      }
+
+      if (currentScene === 'medical') renderMedicalScene();
+    }
+
+    function renderGachaPoolPreview() {
+      const localList = document.getElementById('local-pool-list');
+      const internationalList = document.getElementById('international-pool-list');
+      if (!game?.gacha || !localList || !internationalList) return;
+
+      const renderList = (target, pool) => {
+        const revealed = game.scoutingReports?.[pool];
+        target.innerHTML = game.gacha.getPoolPreview(pool).map(player => `
+          <span class="pool-pill ${player.protected ? 'locked' : ''}">
+            <strong>${player.name}</strong>
+            <small>${player.position}</small>
+            <em>${player.protected ? '保護名單' : (revealed ? player.info : '能力區間 ??')}</em>
+          </span>
+        `).join('');
+      };
+
+      renderList(localList, 'local');
+      renderList(internationalList, 'international');
+    }
+
+    function renderPregameScene() {
+      const opponent = document.getElementById('pregame-opponent');
+      const rotation = document.getElementById('pregame-rotation');
+      const lineup = document.getElementById('pregame-lineup');
+      if (!opponent || !rotation || !lineup) return;
+
+      const abilityText = (player) => player.canPitch() && player.role === 'P'
+        ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 變化 ${player.abilities.breaking}`
+        : `巧打 ${player.abilities.contact} / 長打 ${player.abilities.power} / 走力 ${player.abilities.speed}`;
+
+      opponent.innerHTML = `
+        <p class="font-bold">${game.opponentTeam.name}</p>
+        <p>先發：${game.opponentTeam.pitcher.name} (${abilityText(game.opponentTeam.pitcher)})</p>
+        ${game.opponentTeam.battingOrder.map((player, index) => `<p>${index + 1}. ${player.name}｜${abilityText(player)}</p>`).join('')}
+      `;
+
+      rotation.innerHTML = game.rotationOrder.map((playerIndex, orderIndex) => {
+        const player = game.roster.players[playerIndex];
+        const active = orderIndex === game.rotationSlot ? 'font-bold text-blue-700' : '';
+        return `<p class="${active}">${orderIndex + 1}. ${player.name}｜體力 ${Math.round(player.state.stamina)}/${player.maxStamina}｜${abilityText(player)}</p>`;
+      }).join('');
+
+      lineup.innerHTML = game.playerBattingOrder.map((playerIndex, orderIndex) => {
+        const player = game.roster.players[playerIndex];
+        const assigned = game.getAssignedPosition(playerIndex) || 'DH';
+        return `<p>${orderIndex + 1}. ${player.name}｜${assigned}｜${abilityText(player)}</p>`;
+      }).join('');
+    }
+
+    function medicalRiskClass(staminaPct) {
+      if (staminaPct < 30) return 'danger';
+      if (staminaPct < 60) return 'warning';
+      return 'safe';
+    }
+
+    function renderMedicalScene() {
+      const list = document.getElementById('medical-list');
+      if (!list || !game?.medicalCenter) return;
+
+      if (!list.dataset.bound) {
+        list.addEventListener('click', (event) => {
+          const button = event.target.closest('.medical-btn');
+          if (!button) return;
+          const index = Number(button.dataset.index);
+          const action = button.dataset.action;
+          const result = action === 'heal'
+            ? game.medicalCenter.healPlayer(index)
+            : game.medicalCenter.protectPlayer(index);
+
+          showMedicalToast(result.message, !result.success);
+          if (result.success) game.saveManager.save(game);
+          game.updateUI();
+        });
+        list.dataset.bound = 'true';
+      }
+
+      list.innerHTML = game.roster.players.map((player, index) => {
+        const rank = player.getRank();
+        const staminaPct = Math.max(0, Math.min(100, Math.round((player.state.stamina / Math.max(1, player.maxStamina)) * 100)));
+        const protection = game.medicalCenter.protectionBuffs[index];
+        const risk = Math.round(game.medicalCenter.getInjuryProbability(index) * 100);
+        const status = protection
+          ? `<span class="status-pill protected">${i18n.protected} ${protection.duration}${i18n.matchesShort}</span>`
+          : `<span class="status-pill">${i18n.healthy}</span>`;
+        return `
+          <article class="medical-player">
+            <div class="medical-player-main">
+              <div>
+                <h3>${player.name}</h3>
+                <div class="medical-tags">
+                  <span class="rank-tag badge-${rank.toLowerCase()}">${rank}</span>
+                  <span>${i18n.injuryRiskLabel} ${risk}%</span>
+                  ${status}
+                </div>
+              </div>
+              <div class="medical-actions">
+                <button class="medical-btn" type="button" data-index="${index}" data-action="heal" ${game.currency < 200 ? 'disabled' : ''}>物理治療</button>
+                <button class="medical-btn protect" type="button" data-index="${index}" data-action="protect" ${game.currency < 150 ? 'disabled' : ''}>傷病預防</button>
+              </div>
+            </div>
+            <div class="stamina-line">
+              <span>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}</span>
+              <strong>${staminaPct}%</strong>
+            </div>
+            <div class="meter ${medicalRiskClass(staminaPct)}"><span style="width:${staminaPct}%"></span></div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function showMedicalToast(message, isError) {
+      const toast = document.getElementById('medical-toast');
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.toggle('error', Boolean(isError));
+      toast.classList.add('show');
+      window.clearTimeout(showMedicalToast.timer);
+      showMedicalToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    game.updateUI();
+    renderGachaPoolPreview();
+    renderPregameScene();
+  </script>
+</body>
+</html>
