@@ -124,6 +124,7 @@
             </section>
             <section class="side-panel">
               <h3>守位與板凳</h3>
+              <div id="pregame-coaches"></div>
               <div id="pregame-defense"></div>
               <div id="pregame-bench"></div>
             </section>
@@ -175,6 +176,7 @@
                 <button id="normal-pitch" class="control-button primary" type="button">正常投球</button>
                 <button id="magic-pitch" class="control-button danger" type="button">燃燒生命</button>
                 <button id="auto-sim" class="control-button" type="button">模擬打席</button>
+                <button id="steal-base" class="control-button accent" type="button">盜壘</button>
                 <button id="pickoff" class="control-button warning" type="button">牽制</button>
                 <button id="baserunning-mode" class="control-button ghost" type="button">跑壘：普通</button>
                 <button id="auto-toggle" class="control-button" type="button">自動模擬</button>
@@ -328,6 +330,14 @@
       <h2 id="summary-result">賽後摘要</h2>
       <p id="summary-score"></p>
       <p id="summary-reward"></p>
+      <p id="summary-heat"></p>
+      <div class="summary-standings">
+        <h3>聯盟戰績</h3>
+        <table>
+          <thead><tr><th>#</th><th>球隊</th><th>戰績</th><th>勝率</th><th>近況</th></tr></thead>
+          <tbody id="summary-standings"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -366,6 +376,7 @@
     };
     let currentScene = 'lobby';
     let pregameSelectedLineupSlot = 0;
+    let pregameDragSlot = null;
 
     function sceneElement(name) {
       return document.getElementById(SCENE_ID[name]);
@@ -463,13 +474,21 @@
       const magicPitch = document.getElementById('magic-pitch');
       const autoSim = document.getElementById('auto-sim');
       const pickoff = document.getElementById('pickoff');
+      const steal = document.getElementById('steal-base');
       const baserunning = document.getElementById('baserunning-mode');
       if (normalPitch && magicPitch && autoSim) {
         const offense = game.currentHalf === 'bottom';
         normalPitch.textContent = offense ? '進攻打席' : '守備投球';
         magicPitch.textContent = offense ? '強攻揮擊' : '燃燒生命';
         autoSim.textContent = offense ? '模擬進攻' : '模擬守備';
-        if (pickoff) pickoff.disabled = offense || !game.getCurrentRunners().some(Boolean);
+        if (pickoff) {
+          pickoff.textContent = `牽制 ${game.pickoffAttemptsThisHalf || 0}/2`;
+          pickoff.disabled = offense || !game.getCurrentRunners().some(Boolean) || game.pickoffAttemptsThisHalf >= 2;
+        }
+        if (steal) {
+          const runners = game.getCurrentRunners();
+          steal.disabled = !offense || !(runners[0] || runners[1]);
+        }
         if (baserunning) baserunning.textContent = `跑壘：${game.getBaserunningLabel?.() || '普通'}`;
       }
       document.querySelectorAll('[data-offense-plan]').forEach((button) => {
@@ -506,9 +525,10 @@
       const opponent = document.getElementById('pregame-opponent');
       const rotation = document.getElementById('pregame-rotation');
       const lineup = document.getElementById('pregame-lineup');
+      const coaches = document.getElementById('pregame-coaches');
       const defense = document.getElementById('pregame-defense');
       const bench = document.getElementById('pregame-bench');
-      if (!opponent || !rotation || !lineup || !defense || !bench) return;
+      if (!opponent || !rotation || !lineup || !coaches || !defense || !bench) return;
 
       const abilityText = (player) => player.canPitch() && player.role === 'P'
         ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 球威 ${player.abilities.stuff}`
@@ -523,7 +543,7 @@
         <p class="font-bold">${game.opponentTeam.name}</p>
         <p>先發：${game.opponentTeam.pitcher.name} (${abilityText(game.opponentTeam.pitcher)})</p>
         <div class="pregame-button-list">
-          ${game.opponentTeam.battingOrder.map((player, index) => `<button class="pregame-row" type="button" title="${abilityText(player)}"><span>${index + 1}. ${player.name}</span><small>${player.position}｜${abilityText(player)}</small></button>`).join('')}
+          ${game.opponentTeam.battingOrder.map((player, index) => `<button class="pregame-row" type="button" title="${abilityText(player)}"><span>${index + 1}. ${player.name}</span><small>${player.getPositionLabel()}｜${abilityText(player)}</small></button>`).join('')}
         </div>
       `;
 
@@ -538,20 +558,28 @@
         const player = game.roster.players[playerIndex];
         const assigned = game.getAssignedPosition(playerIndex) || 'DH';
         const selected = orderIndex === pregameSelectedLineupSlot ? ' active' : '';
-        return `<div class="pregame-row lineup-row${selected}" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, -1)" ${orderIndex === 0 ? 'disabled' : ''}>↑</button><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, 1)" ${orderIndex === game.playerBattingOrder.length - 1 ? 'disabled' : ''}>↓</button><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
+        return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, -1)" ${orderIndex === 0 ? 'disabled' : ''}>↑</button><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, 1)" ${orderIndex === game.playerBattingOrder.length - 1 ? 'disabled' : ''}>↓</button><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
       }).join('')}</div>`;
+
+      coaches.innerHTML = `
+        <h4>教練團</h4>
+        <div class="coach-grid">
+          ${game.coaches.map(coach => `<button class="coach-card ${coach.id === game.activeCoachId ? 'active' : ''}" type="button" onclick="selectCoach('${coach.id}')"><span>${coach.name}</span><small>${coach.bonus}</small></button>`).join('')}
+        </div>
+        <p class="pregame-note">熱度會在賽後轉成球探點數，主場氣氛越高，結算收益越好。</p>
+      `;
 
       defense.innerHTML = `<div class="defense-grid">${game.defensiveSlots.map(slot => {
         const playerIndex = game.defensiveAssignments[slot];
         const player = game.roster.players[playerIndex];
         const penalty = player ? player.getPositionPenalty(slot) : 0;
-        return `<button class="defense-slot" type="button" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></button>`;
+        return `<button class="defense-slot" type="button" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${POSITION_LABELS[slot] || slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></button>`;
       }).join('')}</div>`;
 
       bench.innerHTML = `
         <h4>板凳｜點選後換入第 ${pregameSelectedLineupSlot + 1} 棒</h4>
         <div class="pregame-button-list">
-          ${benchPlayers.map(({ player, index }) => `<button class="pregame-row bench-row" type="button" onclick="swapPregameLineup(${index})"><span>${player.name}</span><small>${player.position}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small></button>`).join('') || '<p class="pregame-note">目前沒有可用板凳野手。</p>'}
+          ${benchPlayers.map(({ player, index }) => `<button class="pregame-row bench-row" type="button" onclick="swapPregameLineup(${index})"><span>${player.name}</span><small>${player.getPositionLabel()}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small></button>`).join('') || '<p class="pregame-note">目前沒有可用板凳野手。</p>'}
         </div>
       `;
     }
@@ -563,6 +591,25 @@
 
     function selectPregameLineupSlot(slot) {
       pregameSelectedLineupSlot = slot;
+      renderPregameScene();
+    }
+
+    function dragPregameLineup(event, slot) {
+      pregameDragSlot = slot;
+      event.dataTransfer?.setData('text/plain', String(slot));
+    }
+
+    function dropPregameLineup(event, slot) {
+      event.preventDefault();
+      const from = pregameDragSlot ?? Number(event.dataTransfer?.getData('text/plain'));
+      if (!Number.isInteger(from) || from === slot) return;
+      const [moved] = game.playerBattingOrder.splice(from, 1);
+      game.playerBattingOrder.splice(slot, 0, moved);
+      pregameSelectedLineupSlot = slot;
+      game.playerNextBatterIndex = 0;
+      game.autoAssignDefense();
+      game.saveManager.save(game);
+      game.updateUI();
       renderPregameScene();
     }
 
@@ -579,6 +626,11 @@
 
     function cyclePregameDefense(index) {
       game.cycleDefensePosition(index);
+      renderPregameScene();
+    }
+
+    function selectCoach(id) {
+      game.setCoach(id);
       renderPregameScene();
     }
 
@@ -617,13 +669,14 @@
       if (!player || !content) return;
       const rank = player.getRank();
       const traits = player.traits.length
-        ? player.traits.map(trait => `<span class="trait-pill trait-${getTraitTier(trait)}" title="${getTraitDescription(trait)}">${trait}</span>`).join('')
+        ? player.traits.map(trait => `<span class="trait-pill trait-${getTraitTier(trait)}" title="${getTraitDescription(trait)}">${trait}<small>${getTraitDescription(trait)}</small></span>`).join('')
         : '<span class="trait-pill">無特能</span>';
       const pitches = player.pitchTypes?.length
         ? player.pitchTypes.map(pitch => `<div class="pitch-chip"><strong>${pitch.name}</strong><span>速 ${pitch.speed}</span><span>變 ${pitch.movement}</span><span>控 ${pitch.control}</span><span>威 ${pitch.stuff}</span></div>`).join('')
         : '<p class="pregame-note">非投手，沒有球種資料。</p>';
       content.innerHTML = `
         <div class="detail-header">
+          ${createPixelPortrait(player, 88)}
           <div>
             <p class="eyebrow">Player Sheet</p>
             <h2 id="player-detail-title">${player.name}</h2>
@@ -633,7 +686,7 @@
         </div>
         <div class="detail-meta">
           <span>${player.getRoleLabel()}</span>
-          <span>${player.position}</span>
+          <span>${player.getPositionLabel()}</span>
           <span>${player.level === 'minor' ? '二軍' : '一軍'}</span>
           <span>調子 ${getConditionLabel(player.condition)}</span>
           <span>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}</span>

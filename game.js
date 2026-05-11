@@ -329,6 +329,35 @@ const PITCH_TYPE_LIBRARY = [
   '四縫線', '二縫線', '滑球', '曲球', '指叉', '變速球', '卡特球', '伸卡球'
 ];
 
+const POSITION_LABELS = {
+  C: '捕手',
+  '1B': '一壘手',
+  '2B': '二壘手',
+  '3B': '三壘手',
+  SS: '游擊手',
+  LF: '左外野手',
+  CF: '中外野手',
+  RF: '右外野手',
+  DH: '指定打擊',
+  IF: '內野手',
+  OF: '外野手',
+  UTIL: '工具人'
+};
+
+const POSITION_GROUPS = {
+  C: 'catcher',
+  '1B': 'first',
+  '2B': 'middleInfield',
+  SS: 'middleInfield',
+  '3B': 'hotCorner',
+  LF: 'cornerOutfield',
+  RF: 'cornerOutfield',
+  CF: 'centerField',
+  IF: 'infield',
+  OF: 'outfield',
+  DH: 'dh'
+};
+
 function getTraitDescription(trait) {
   return TRAIT_DESCRIPTIONS[trait] || '特殊能力，會在特定比賽情境影響表現。';
 }
@@ -339,6 +368,32 @@ function getTraitTier(trait) {
 
 function getConditionLabel(condition) {
   return CONDITION_EFFECTS[condition]?.label || CONDITION_EFFECTS.normal.label;
+}
+
+function hashString(text) {
+  return Array.from(String(text || '')).reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+}
+
+function createPixelPortrait(player, size = 64) {
+  const hash = Math.abs(hashString(`${player.name}${player.team}`));
+  const teamHue = hash % 360;
+  const skin = `hsl(${28 + (hash % 18)}, 62%, 70%)`;
+  const jersey = `hsl(${teamHue}, 64%, 42%)`;
+  const cap = `hsl(${(teamHue + 28) % 360}, 70%, 34%)`;
+  const bg = `hsl(${(teamHue + 180) % 360}, 30%, 16%)`;
+  const cells = [];
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      let fill = bg;
+      if (y === 1 && x >= 2 && x <= 5) fill = cap;
+      if (y >= 2 && y <= 4 && x >= 2 && x <= 5) fill = skin;
+      if (y >= 5 && x >= 1 && x <= 6) fill = jersey;
+      if ((x === 2 || x === 5) && y === 3) fill = '#111827';
+      if (y === 4 && x >= 3 && x <= 4) fill = '#7f1d1d';
+      cells.push(`<rect x="${x * 8}" y="${y * 8}" width="8" height="8" fill="${fill}"/>`);
+    }
+  }
+  return `<svg class="pixel-portrait" width="${size}" height="${size}" viewBox="0 0 64 64" role="img" aria-label="${player.name} 像素頭像">${cells.join('')}</svg>`;
 }
 
 // StatMapper Class - Converts real stats to game attributes
@@ -684,17 +739,32 @@ class Player {
       .filter(Boolean);
   }
 
+  getPositionLabel(position = this.position) {
+    return String(position || 'UTIL')
+      .split('/')
+      .map(pos => POSITION_LABELS[pos] || pos)
+      .join('/');
+  }
+
+  getPositionGroup(position) {
+    return POSITION_GROUPS[position] || 'utility';
+  }
+
   getPositionPenalty(assignedPosition) {
     if (!assignedPosition || assignedPosition === 'DH') return 0;
     if (assignedPosition === 'P') return this.canPitch() ? 0 : 30;
     const positions = this.getPrimaryPositions();
     if (positions.includes(assignedPosition)) return 0;
-    if (assignedPosition === 'OF' && positions.some(pos => ['LF', 'CF', 'RF', 'OF'].includes(pos))) return 0;
-    if (['LF', 'CF', 'RF'].includes(assignedPosition) && positions.includes('OF')) return 0;
-    if (['2B', '3B', 'SS'].includes(assignedPosition) && positions.includes('IF')) return 8;
-    if (assignedPosition === '1B' && (positions.includes('IF') || positions.includes('C'))) return 10;
-    if (['LF', 'RF'].includes(assignedPosition) && positions.includes('1B')) return 14;
-    return 18;
+    const assignedGroup = this.getPositionGroup(assignedPosition);
+    const groups = positions.map(pos => this.getPositionGroup(pos));
+    if (assignedGroup === 'cornerOutfield' && (groups.includes('cornerOutfield') || positions.includes('OF'))) return 3;
+    if (assignedGroup === 'centerField' && positions.includes('OF')) return 6;
+    if (assignedGroup === 'middleInfield' && (groups.includes('middleInfield') || positions.includes('IF'))) return 4;
+    if (assignedGroup === 'hotCorner' && (groups.includes('middleInfield') || positions.includes('IF'))) return 5;
+    if (assignedGroup === 'first' && (positions.includes('IF') || groups.includes('hotCorner') || groups.includes('catcher'))) return 6;
+    if (assignedGroup === 'catcher' && !groups.includes('catcher')) return 22;
+    if (assignedGroup === 'cornerOutfield' && groups.includes('first')) return 10;
+    return 16;
   }
 
   getRoleLabel() {
@@ -716,10 +786,7 @@ class Player {
   getEffectiveVelocity() {
     let vel = this.physical.velocity;
     if (this.burnLifeActive) vel *= 1.15;
-    if (this.state.stamina < 30) {
-      let decay = Math.exp((this.state.stamina - 30) / 10);
-      vel *= Math.max(0.1, decay);
-    }
+    vel *= this.getPitchStaminaMultiplier();
     return clampInt(vel);
   }
 
@@ -735,11 +802,17 @@ class Player {
 
   getEffectiveControl() {
     let ctrl = this.physical.control;
-    if (this.state.stamina < 30) {
-      let decay = Math.exp((this.state.stamina - 30) / 10);
-      ctrl *= Math.max(0.1, decay);
-    }
+    ctrl *= this.getPitchStaminaMultiplier();
     return clampInt(ctrl);
+  }
+
+  getPitchStaminaMultiplier() {
+    const pct = this.maxStamina ? (this.state.stamina / this.maxStamina) * 100 : 0;
+    if (pct <= 0) return 0.35;
+    if (pct <= 10) return 0.55;
+    if (pct <= 30) return 0.75;
+    if (pct <= 50) return 0.9;
+    return 1;
   }
 
   getConditionModifier() {
@@ -1052,6 +1125,10 @@ class SaveManager {
       baserunningMode: game.baserunningMode,
       offenseApproach: game.offenseApproach,
       pitchPlan: game.pitchPlan,
+      pickoffAttemptsThisHalf: game.pickoffAttemptsThisHalf,
+      activeCoachId: game.activeCoachId,
+      leagueStandings: game.leagueStandings,
+      managementLog: game.managementLog,
       currentSeasonEvent: game.currentSeasonEvent,
       protectionBuffs: game.medicalCenter.protectionBuffs
     };
@@ -1132,6 +1209,10 @@ class SaveManager {
       game.baserunningMode = data.baserunningMode || game.baserunningMode;
       game.offenseApproach = data.offenseApproach || game.offenseApproach;
       game.pitchPlan = data.pitchPlan || game.pitchPlan;
+      game.pickoffAttemptsThisHalf = data.pickoffAttemptsThisHalf || 0;
+      game.activeCoachId = data.activeCoachId || game.activeCoachId;
+      game.leagueStandings = data.leagueStandings || game.leagueStandings;
+      game.managementLog = data.managementLog || game.managementLog;
       game.currentSeasonEvent = data.currentSeasonEvent || game.currentSeasonEvent;
       game.normalizeManagementState();
     }
@@ -1154,6 +1235,8 @@ class SeasonManager {
 
   endMatch() {
     let result;
+    const heatReward = Math.round(this.game.getCrowdEnergy() * 2);
+    this.game.currency += heatReward;
     if (this.game.playerScore > this.game.opponentScore) {
       this.wins++;
       result = 'Win';
@@ -1165,7 +1248,8 @@ class SeasonManager {
       this.losses++;
       result = 'Tie';
     }
-    showMatchSummary(result, this.game.playerScore, this.game.opponentScore, this.game.currency);
+    this.game.updateLeagueStandings(result);
+    showMatchSummary(result, this.game.playerScore, this.game.opponentScore, this.game.currency, heatReward, this.game.getStandingsHTML());
     this.game.saveManager.save(this.game);
     if (this.currentMatch < this.seasonLength) {
       this.currentMatch++;
@@ -1217,6 +1301,17 @@ class Game {
     this.baserunningMode = 'normal';
     this.offenseApproach = 'normal';
     this.pitchPlan = 'balanced';
+    this.pickoffAttemptsThisHalf = 0;
+    this.managementLog = [];
+    this.coaches = [
+      { id: 'hitting', name: '打擊教練', bonus: '巧打/長打 +2', hitting: 2, heat: 0 },
+      { id: 'pitching', name: '投手教練', bonus: '控球/球威 +2', pitching: 2, heat: 0 },
+      { id: 'defense', name: '守備教練', bonus: '守備 +3', defense: 3, heat: 0 },
+      { id: 'conditioning', name: '體能教練', bonus: '恢復力 +6，傷病風險下降', recovery: 6, heat: 0 },
+      { id: 'marketing', name: '人氣教練', bonus: '球場熱度 +8', heat: 8 }
+    ];
+    this.activeCoachId = 'hitting';
+    this.leagueStandings = this.createInitialStandings();
     this.currentSeasonEvent = null;
     this.crowdEnergy = 50;
     this.normalizeManagementState();
@@ -1263,6 +1358,61 @@ class Game {
       getUpcomingBatters: function() { return [1,2,3].map(offset => this.battingOrder[(this.nextBatterIndex + offset) % this.battingOrder.length]); },
       resetLineup: function() { this.nextBatterIndex = 0; }
     };
+  }
+
+  createInitialStandings() {
+    const teams = ['第七隊', ...this.opponentTeams];
+    return teams.map(team => ({ team, wins: 0, losses: 0, streak: '-' }));
+  }
+
+  getActiveCoach() {
+    return this.coaches.find(coach => coach.id === this.activeCoachId) || this.coaches[0];
+  }
+
+  setCoach(id) {
+    if (!this.coaches.some(coach => coach.id === id)) return false;
+    this.activeCoachId = id;
+    this.addManagementLog(`教練團調整：${this.getActiveCoach().name} 上任。`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  updateLeagueStandings(result) {
+    if (!Array.isArray(this.leagueStandings) || !this.leagueStandings.length) {
+      this.leagueStandings = this.createInitialStandings();
+    }
+    const updateTeam = (team, won) => {
+      let row = this.leagueStandings.find(item => item.team === team);
+      if (!row) {
+        row = { team, wins: 0, losses: 0, streak: '-' };
+        this.leagueStandings.push(row);
+      }
+      if (won) {
+        row.wins++;
+        row.streak = row.streak?.startsWith('W') ? `W${Number(row.streak.slice(1) || 0) + 1}` : 'W1';
+      } else {
+        row.losses++;
+        row.streak = row.streak?.startsWith('L') ? `L${Number(row.streak.slice(1) || 0) + 1}` : 'L1';
+      }
+    };
+    updateTeam('第七隊', result === 'Win');
+    updateTeam(this.currentOpponent, result !== 'Win');
+    this.opponentTeams
+      .filter(team => team !== this.currentOpponent)
+      .forEach((team, index) => {
+        if ((this.seasonManager.currentMatch + index) % 2 !== 0) return;
+        updateTeam(team, Math.random() < 0.5);
+      });
+    this.leagueStandings.sort((a, b) => (b.wins / Math.max(1, b.wins + b.losses)) - (a.wins / Math.max(1, a.wins + a.losses)) || b.wins - a.wins);
+  }
+
+  getStandingsHTML() {
+    return this.leagueStandings.map((row, index) => {
+      const games = row.wins + row.losses;
+      const pct = games ? (row.wins / games).toFixed(3) : '.000';
+      return `<tr><td>${index + 1}</td><td>${row.team}</td><td>${row.wins}-${row.losses}</td><td>${pct}</td><td>${row.streak}</td></tr>`;
+    }).join('');
   }
 
   normalizeManagementState() {
@@ -1450,7 +1600,7 @@ class Game {
     if (!player) return false;
     const activeMajorCount = this.roster.players.filter(p => p.level !== 'minor').length;
     if (player.level !== 'minor' && activeMajorCount <= 10) {
-      this.addToLog('一軍人數太少，至少保留 10 人。');
+      this.addManagementLog('一軍人數太少，至少保留 10 人。');
       return false;
     }
     player.level = player.level === 'minor' ? 'major' : 'minor';
@@ -1462,7 +1612,7 @@ class Game {
       });
     }
     this.normalizeManagementState();
-    this.addToLog(`${player.name} 已移至${player.level === 'minor' ? '二軍' : '一軍'}。`);
+    this.addManagementLog(`${player.name} 已移至${player.level === 'minor' ? '二軍' : '一軍'}。`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1473,7 +1623,7 @@ class Game {
     const rotationIndex = this.rotationOrder.indexOf(index);
     if (rotationIndex >= 0) this.rotationSlot = rotationIndex;
     this.pitcher = this.roster.players[index];
-    this.addToLog(`賽前指定先發投手：${this.pitcher.name}`);
+    this.addManagementLog(`賽前指定先發投手：${this.pitcher.name}`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1514,7 +1664,7 @@ class Game {
     const modes = ['conservative', 'normal', 'aggressive'];
     const next = modes[(modes.indexOf(this.baserunningMode) + 1) % modes.length];
     this.baserunningMode = next;
-    this.addToLog(`跑壘策略改為：${this.getBaserunningLabel()}`);
+    this.addManagementLog(`跑壘策略改為：${this.getBaserunningLabel()}`);
     this.saveManager.save(this);
     this.updateUI();
   }
@@ -1532,7 +1682,7 @@ class Game {
   setOffenseApproach(mode) {
     if (!['patient', 'normal', 'aggressive'].includes(mode)) return false;
     this.offenseApproach = mode;
-    this.addToLog(`進攻策略改為：${this.getOffenseApproachLabel()}`);
+    this.addManagementLog(`進攻策略改為：${this.getOffenseApproachLabel()}`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1545,7 +1695,7 @@ class Game {
   setPitchPlan(plan) {
     if (!['fastball', 'balanced', 'breaking', 'waste'].includes(plan)) return false;
     this.pitchPlan = plan;
-    this.addToLog(`投球策略改為：${this.getPitchPlanLabel()}`);
+    this.addManagementLog(`投球策略改為：${this.getPitchPlanLabel()}`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1560,14 +1710,18 @@ class Game {
     }, {});
     const sameTeamMax = Math.max(0, ...Object.values(teamCounts));
     const localOnly = starters.length >= 9 && starters.every(player => player.team !== 'MLB' && player.team !== 'NPB');
+    const coach = this.getActiveCoach();
     return {
-      defense: sameTeamMax >= 3 ? 2 : 0,
-      hitting: sameTeamMax >= 5 ? 3 : 0,
-      morale: localOnly ? 10 : 0,
+      defense: (sameTeamMax >= 3 ? 2 : 0) + (coach.defense || 0),
+      hitting: (sameTeamMax >= 5 ? 3 : 0) + (coach.hitting || 0),
+      pitching: coach.pitching || 0,
+      recovery: coach.recovery || 0,
+      morale: (localOnly ? 10 : 0) + (coach.heat || 0),
       label: [
         sameTeamMax >= 3 ? '同隊3人：守備 +2' : '',
         sameTeamMax >= 5 ? '同隊5人：打擊 +3' : '',
-        localOnly ? '純本土打線：球迷熱度 +10' : ''
+        localOnly ? '純本土打線：球迷熱度 +10' : '',
+        coach ? `${coach.name}：${coach.bonus}` : ''
       ].filter(Boolean).join(' / ') || '尚未觸發隊伍加成'
     };
   }
@@ -1599,7 +1753,7 @@ class Game {
     });
     player.gainXP(plan.xp);
     player.pitchTypes = player.generatePitchTypes();
-    this.addToLog(`${player.name} 完成${plan.label}，能力 +${growth}。`);
+    this.addManagementLog(`${player.name} 完成${plan.label}，能力 +${growth}。`);
     this.saveManager.save(this);
     this.updateUI();
     return { success: true, message: `${plan.label}完成：${player.name}` };
@@ -1610,6 +1764,10 @@ class Game {
       this.addToLog('目前是我方進攻，不能牽制。');
       return false;
     }
+    if (this.pickoffAttemptsThisHalf >= 2) {
+      this.addToLog('本半局牽制次數已用完。');
+      return false;
+    }
     const runners = this.opponentRunners;
     const occupied = runners
       .map((runner, base) => ({ runner, base }))
@@ -1618,10 +1776,12 @@ class Game {
       this.addToLog('壘上無人，牽制取消。');
       return false;
     }
+    this.pickoffAttemptsThisHalf++;
     const target = occupied[0];
     const pitcher = this.roster.activeLineup.pitcher || this.pitcher;
     const runnerSpeed = target.runner.abilities?.speed || target.runner.physical.speed || 70;
-    const pickoffChance = Math.max(0.08, Math.min(0.42, 0.24 + (pitcher.abilities.control - runnerSpeed) / 260));
+    const pickoffSkill = (pitcher.abilities.pickoff || pitcher.abilities.control || 70) * 0.65 + (pitcher.abilities.quickDelivery || 70) * 0.35;
+    const pickoffChance = Math.max(0.04, Math.min(0.18, 0.08 + (pickoffSkill - runnerSpeed) / 420));
     pitcher.consumeStamina(1);
     if (Math.random() < pickoffChance) {
       runners[target.base] = null;
@@ -1643,6 +1803,56 @@ class Game {
     return false;
   }
 
+  attemptSteal() {
+    if (this.currentHalf !== 'bottom') {
+      this.addToLog('目前是我方守備，不能發動盜壘。');
+      return false;
+    }
+    const runners = this.playerRunners;
+    const targetBase = runners[1] && !runners[2] ? 1 : runners[0] && !runners[1] ? 0 : -1;
+    if (targetBase < 0) {
+      this.addToLog('沒有適合盜壘的跑者。');
+      return false;
+    }
+    const runner = runners[targetBase];
+    const catcher = this.opponentTeam.battingOrder.find(player => player.position === 'C');
+    const catcherArm = catcher?.abilities?.arm || 74;
+    const speed = runner.abilities?.speed || runner.physical.speed || 70;
+    const modeBonus = this.baserunningMode === 'aggressive' ? 0.08 : this.baserunningMode === 'conservative' ? -0.08 : 0;
+    const stealTrait = runner.traits.includes('盜壘好手') ? 0.08 : 0;
+    const successChance = Math.max(0.18, Math.min(0.86, 0.52 + (speed - catcherArm) / 170 + modeBonus + stealTrait));
+    const destination = targetBase + 1;
+    runner.consumeStamina(2);
+    if (Math.random() < successChance) {
+      runners[destination] = runner;
+      runners[targetBase] = null;
+      this.addToLog(`${runner.name} 發動盜壘成功，攻佔${destination === 1 ? '二' : '三'}壘！`);
+      this.updateUI();
+      this.saveManager.save(this);
+      return true;
+    }
+    runners[targetBase] = null;
+    this.recordOut();
+    this.addToLog(`${runner.name} 盜壘失敗，被捕手阻殺。`);
+    this.saveManager.save(this);
+    return false;
+  }
+
+  trySacrificeFly(team, batter) {
+    const runners = team === 'opponent' ? this.opponentRunners : this.playerRunners;
+    if (this.outs >= 2 || !runners[2]) return false;
+    const scoreKey = team === 'opponent' ? 'opponentScore' : 'playerScore';
+    const runner = runners[2];
+    const speed = runner.abilities?.speed || runner.physical.speed || 70;
+    const armPenalty = team === 'opponent' ? Math.max(0, this.getTeamDefenseModifier()) : 0;
+    const chance = Math.max(0.22, Math.min(0.78, 0.46 + (speed - 70) / 180 + (batter.abilities?.power || 70) / 500 - armPenalty / 90));
+    if (Math.random() > chance) return false;
+    runners[2] = null;
+    this[scoreKey]++;
+    this.addToLog(`${batter.name} 打出高飛犧牲打，${runner.name} 回本壘得分。`);
+    return true;
+  }
+
   applySeasonEvent() {
     const events = [
       { title: '主場滿員', text: '票房爆棚，球探點數 +120。', apply: () => { this.currency += 120; } },
@@ -1653,23 +1863,23 @@ class Game {
     const event = events[Math.floor(Math.random() * events.length)];
     event.apply();
     this.currentSeasonEvent = { title: event.title, text: event.text };
-    this.addToLog(`[賽季事件] ${event.title}：${event.text}`);
+    this.addManagementLog(`[賽季事件] ${event.title}：${event.text}`);
   }
 
   buyScoutReport(pool) {
     const cost = 50;
     if (this.scoutingReports[pool]) {
-      this.addToLog(`[球探報告] ${pool === 'local' ? '本地新秀' : '國際巨星'}情報已解鎖，不再扣點。`);
+      this.addManagementLog(`[球探報告] ${pool === 'local' ? '本地新秀' : '國際巨星'}情報已解鎖，不再扣點。`);
       this.updateUI();
       return true;
     }
     if (this.currency < cost) {
-      this.addToLog(i18n.notEnoughCurrency);
+      this.addManagementLog(i18n.notEnoughCurrency);
       return false;
     }
     this.currency -= cost;
     this.scoutingReports[pool] = true;
-    this.addToLog(`[球探報告] ${pool === 'local' ? '本地新秀' : '國際巨星'}能力情報已解鎖。`);
+    this.addManagementLog(`[球探報告] ${pool === 'local' ? '本地新秀' : '國際巨星'}能力情報已解鎖。`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -1679,7 +1889,7 @@ class Game {
     const matchup = this.getCurrentMatchup();
     const activePitcher = matchup.pitcher;
     const logDiv = document.getElementById('play-log');
-    logDiv.innerHTML = this.log.slice(-20).map(msg => `<p>${msg}</p>`).join(''); // last 20 messages
+    logDiv.innerHTML = this.log.slice(-20).reverse().map(msg => `<p>${msg}</p>`).join('');
     document.getElementById('inning').textContent = this.inning;
     document.getElementById('half').textContent = this.currentHalf === 'top' ? i18n.top : i18n.bottom;
     document.getElementById('outs').textContent = this.outs;
@@ -1699,9 +1909,9 @@ class Game {
     const matchupText = document.getElementById('matchup-text');
     if (matchupText) matchupText.textContent = `${matchup.offenseLabel}進攻 / ${matchup.defenseLabel}守備`;
     const pitcherText = document.getElementById('current-pitcher');
-    if (pitcherText) pitcherText.textContent = `${matchup.pitcher.name} (${matchup.pitcher.position})`;
+    if (pitcherText) pitcherText.textContent = `${matchup.pitcher.name} (${matchup.pitcher.getPositionLabel()})`;
     const batterText = document.getElementById('current-batter');
-    if (batterText) batterText.textContent = `${matchup.batter.name} (${matchup.batter.position})`;
+    if (batterText) batterText.textContent = `${matchup.batter.name} (${matchup.batter.getPositionLabel()})`;
     const crowdText = document.getElementById('crowd-energy');
     if (crowdText) crowdText.textContent = this.getCrowdEnergy();
     const eventText = document.getElementById('season-event');
@@ -1755,10 +1965,11 @@ class Game {
         <div class="card-rank-badge badge-${rank.toLowerCase()}">
           ${rank}
         </div>
+        ${createPixelPortrait(p, 58)}
         <div class="card-name">${p.name}</div>
         <div class="card-meta">
           <span>${p.getRoleLabel()}</span>
-          <span>${p.position}</span>
+          <span>${p.getPositionLabel()}</span>
           <span>${p.level === 'minor' ? '二軍' : '一軍'}</span>
           <span>調子 ${getConditionLabel(p.condition)}</span>
           <span>${sourceLine}</span>
@@ -1830,7 +2041,7 @@ class Game {
         const player = this.roster.players[index];
         const currentClass = orderIndex === this.playerNextBatterIndex && this.currentHalf === 'bottom' ? 'font-bold text-blue-700' : '';
         const assigned = this.getAssignedPosition(index) || 'DH';
-        return `<p class="${currentClass}">${orderIndex + 1}. ${player.name} (${assigned})</p>`;
+        return `<p class="${currentClass}">${orderIndex + 1}. ${player.name} (${POSITION_LABELS[assigned] || assigned})</p>`;
       }).join('');
     }
   }
@@ -1908,6 +2119,12 @@ class Game {
     this.updateUI();
   }
 
+  addManagementLog(message) {
+    this.managementLog.push(message);
+    this.managementLog = this.managementLog.slice(-30);
+    this.updateUI();
+  }
+
   addCommentary(outcomeKey, player, cardActive = false) {
     const commentary = this.commentaryGenerator.generateCommentary(outcomeKey, player, cardActive);
     if (commentary) {
@@ -1919,6 +2136,7 @@ class Game {
     if (this.currentHalf === 'top') {
       this.currentHalf = 'bottom';
       this.outs = 0;
+      this.pickoffAttemptsThisHalf = 0;
       this.resetCount();
       this.playerRunners = [null, null, null];
       this.opponentRunners = [null, null, null];
@@ -1928,6 +2146,7 @@ class Game {
       this.currentHalf = 'top';
       this.inning++;
       this.outs = 0;
+      this.pickoffAttemptsThisHalf = 0;
       this.resetCount();
       this.playerRunners = [null, null, null];
       this.opponentRunners = [null, null, null];
@@ -1978,6 +2197,7 @@ class Game {
   prepareNextMatch() {
     this.inning = 1;
     this.outs = 0;
+    this.pickoffAttemptsThisHalf = 0;
     this.resetCount();
     this.playerRunners = [null, null, null];
     this.opponentRunners = [null, null, null];
@@ -1996,14 +2216,15 @@ class Game {
     this.currentOpponent = this.opponentTeams[Math.floor(Math.random() * this.opponentTeams.length)];
     this.opponentTeam = this.generateOpponentTeam(this.currentOpponent);
     this.currentTactic = i18n.normal;
-    this.addToLog(`${i18n.startingMatch} vs ${this.currentOpponent} --- 先發投手：${this.pitcher.name}`);
+    this.addManagementLog(`${i18n.startingMatch} vs ${this.currentOpponent} --- 先發投手：${this.pitcher.name}`);
     this.applySeasonEvent();
     this.saveManager.save(this);
   }
 
   recoverPlayersBetweenGames() {
+    const recoveryBonus = this.getTeamBonuses().recovery || 0;
     this.roster.players.forEach(player => {
-      const recovery = player.level === 'minor' ? 45 : (player.canPitch() ? 24 : 32);
+      const recovery = (player.level === 'minor' ? 45 : (player.canPitch() ? 24 : 32)) + recoveryBonus;
       player.state.stamina = clampInt(player.state.stamina + recovery, 0, player.maxStamina);
       player.state.mana = clampInt(player.state.mana + 25, 0, player.maxMana);
       player.state.fatigue = clampInt(player.state.fatigue - 12, 0, 100);
@@ -2022,12 +2243,12 @@ class Game {
       const player = this.gacha.drawPlayer(pool);
       this.roster.addPlayer(player);
       this.normalizeManagementState();
-      this.addToLog(`${i18n.recruited} ${player.name} (${pool === 'local' ? i18n.localTalent : i18n.internationalStar})!`);
+      this.addManagementLog(`${i18n.recruited} ${player.name} (${pool === 'local' ? i18n.localTalent : i18n.internationalStar})!`);
       this.saveManager.save(this);
       this.updateExpansionPreview(player);
       this.updateUI();
     } else {
-      this.addToLog(i18n.notEnoughCurrency);
+      this.addManagementLog(i18n.notEnoughCurrency);
     }
   }
 
@@ -2049,7 +2270,7 @@ class Game {
       <div class="card-name">${player.name}</div>
       <div class="card-meta">
         <span>${player.getRoleLabel()}</span>
-        <span>${player.position}</span>
+        <span>${player.getPositionLabel()}</span>
         <span>${player.team}</span>
       </div>
       <div class="card-stats">
@@ -2100,16 +2321,16 @@ class Game {
   }
 
   seasonEndResolution() {
-    this.addToLog(i18n.seasonComplete);
+    this.addManagementLog(i18n.seasonComplete);
     this.roster.players.forEach(player => {
       player.gainXP(50); // Gain XP for playing season
       player.applyAgeDecline();
       if (player.checkInjury()) {
-        this.addToLog(`${player.name} 受傷了！`);
+        this.addManagementLog(`${player.name} 受傷了！`);
       }
       player.restore();
     });
-    this.addToLog(`${i18n.seasonEnded} ${this.seasonManager.record}.`);
+    this.addManagementLog(`${i18n.seasonEnded} ${this.seasonManager.record}.`);
     this.saveManager.save(this);
   }
 }
@@ -2126,14 +2347,14 @@ function gaussianRandom(mean = 0, std = 1) {
 function createDiamondSVG() {
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("width", "350");
-  svg.setAttribute("height", "350");
-  svg.setAttribute("viewBox", "0 0 350 350");
+  svg.setAttribute("width", "300");
+  svg.setAttribute("height", "300");
+  svg.setAttribute("viewBox", "0 0 300 300");
   svg.setAttribute("class", "diamond-svg");
 
   // Draw diamond outline
   const diamond = document.createElementNS(svgNS, "polygon");
-  diamond.setAttribute("points", "175,30 320,175 175,320 30,175");
+  diamond.setAttribute("points", "150,32 268,150 150,268 32,150");
   diamond.setAttribute("fill", "#90EE90");
   diamond.setAttribute("stroke", "#333");
   diamond.setAttribute("stroke-width", "2");
@@ -2141,36 +2362,36 @@ function createDiamondSVG() {
 
   // Home Plate (rounded base)
   const home = document.createElementNS(svgNS, "polygon");
-  home.setAttribute("points", "175,310 190,320 175,330 160,320");
+  home.setAttribute("points", "150,260 160,268 150,276 140,268");
   home.setAttribute("class", "base base-empty");
   home.setAttribute("id", "base-home");
   svg.appendChild(home);
 
   // First Base
   const first = document.createElementNS(svgNS, "polygon");
-  first.setAttribute("points", "310,175 320,190 300,200 290,185");
+  first.setAttribute("points", "258,150 268,160 254,170 244,160");
   first.setAttribute("class", "base base-empty");
   first.setAttribute("id", "base-first");
   svg.appendChild(first);
 
   // Second Base
   const second = document.createElementNS(svgNS, "polygon");
-  second.setAttribute("points", "175,30 190,40 160,50 145,40");
+  second.setAttribute("points", "150,28 160,38 150,48 140,38");
   second.setAttribute("class", "base base-empty");
   second.setAttribute("id", "base-second");
   svg.appendChild(second);
 
   // Third Base
   const third = document.createElementNS(svgNS, "polygon");
-  third.setAttribute("points", "40,175 50,190 30,200 20,185");
+  third.setAttribute("points", "42,150 52,160 38,170 28,160");
   third.setAttribute("class", "base base-empty");
   third.setAttribute("id", "base-third");
   svg.appendChild(third);
 
   // Pitcher position icon
   const pitcher = document.createElementNS(svgNS, "text");
-  pitcher.setAttribute("x", "175");
-  pitcher.setAttribute("y", "175");
+  pitcher.setAttribute("x", "150");
+  pitcher.setAttribute("y", "150");
   pitcher.setAttribute("class", "pitcher-icon");
   pitcher.setAttribute("id", "pitcher-pos");
   pitcher.setAttribute("text-anchor", "middle");
@@ -2180,8 +2401,8 @@ function createDiamondSVG() {
 
   // Batter position icon
   const batter = document.createElementNS(svgNS, "text");
-  batter.setAttribute("x", "175");
-  batter.setAttribute("y", "310");
+  batter.setAttribute("x", "150");
+  batter.setAttribute("y", "258");
   batter.setAttribute("class", "batter-icon");
   batter.setAttribute("id", "batter-pos");
   batter.setAttribute("text-anchor", "middle");
@@ -2191,10 +2412,10 @@ function createDiamondSVG() {
 
   // Base labels
   const labels = [
-    { id: "label-first", x: "330", y: "175", text: "1B" },
-    { id: "label-second", x: "175", y: "20", text: "2B" },
-    { id: "label-third", x: "20", y: "175", text: "3B" },
-    { id: "label-home", x: "175", y: "340", text: "H" }
+    { id: "label-first", x: "278", y: "150", text: "1B" },
+    { id: "label-second", x: "150", y: "22", text: "2B" },
+    { id: "label-third", x: "22", y: "150", text: "3B" },
+    { id: "label-home", x: "150", y: "292", text: "H" }
   ];
   labels.forEach(label => {
     const text = document.createElementNS(svgNS, "text");
@@ -2384,6 +2605,7 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
   vel += pitcherCondition;
   ctrl += pitcherCondition;
   breaking += pitcherCondition;
+  breaking *= pitcher.getPitchStaminaMultiplier ? pitcher.getPitchStaminaMultiplier() : 1;
   contact += batterCondition;
   pow += batterCondition;
   spd += batterCondition;
@@ -2435,6 +2657,11 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
     ctrl += ((pitcher.abilities.crisis || ctrl) - 70) / 5;
   }
   const teamBonuses = game.getTeamBonuses();
+  if (battingTeam === 'opponent') {
+    ctrl += teamBonuses.pitching || 0;
+    breaking += teamBonuses.pitching || 0;
+    vel += (teamBonuses.pitching || 0) / 2;
+  }
   if (battingTeam === 'player') {
     contact += teamBonuses.hitting;
     pow += teamBonuses.hitting;
@@ -2555,6 +2782,7 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
       return finishAtBat(i18n.groundOut);
     }
     if (hitRand < 0.52) {
+      game.trySacrificeFly(battingTeam, batter);
       game.recordOut();
       game.resetCount();
       game.addCommentary(i18n.flyOut, batter, shadowClone);
@@ -2637,6 +2865,10 @@ document.getElementById('pickoff').addEventListener('click', () => {
   game.attemptPickoff();
 });
 
+document.getElementById('steal-base').addEventListener('click', () => {
+  game.attemptSteal();
+});
+
 document.getElementById('baserunning-mode').addEventListener('click', () => {
   game.cycleBaserunningMode();
 });
@@ -2672,20 +2904,20 @@ function activateCard(index) {
 
 function setActivePitcher(index) {
   if (!game.selectStartingPitcher(index)) {
-    game.addToLog(`${game.roster.players[index]?.name || '球員'} 不是投手，不能登板。`);
+    game.addManagementLog(`${game.roster.players[index]?.name || '球員'} 不是投手，不能登板。`);
     return;
   }
 }
 
 function setActiveBatter(index) {
   if (!game.roster.setActiveBatter(index)) {
-    game.addToLog(`${game.roster.players[index]?.name || '球員'} 不是野手，不能排入打線。`);
+    game.addManagementLog(`${game.roster.players[index]?.name || '球員'} 不是野手，不能排入打線。`);
     return;
   }
   game.batter = game.roster.players[index];
   const lineupIndex = game.playerBattingOrder.indexOf(index);
   if (lineupIndex >= 0) game.playerNextBatterIndex = lineupIndex;
-  game.addToLog(`打者指定：${game.roster.players[index].name}`);
+  game.addManagementLog(`打者指定：${game.roster.players[index].name}`);
   game.updateUI();
 }
 
@@ -2699,12 +2931,12 @@ function replaceLineupSlot(slot, index) {
 
 function cycleDefense(index) {
   const slot = game.cycleDefensePosition(index);
-  if (slot) game.addToLog(`${game.roster.players[index].name} 改守 ${slot}`);
+  if (slot) game.addManagementLog(`${game.roster.players[index].name} 改守 ${slot}`);
 }
 
 function assignDefenseSlot(slot, index) {
   if (game.assignDefenseSlot(slot, index)) {
-    game.addToLog(`${game.roster.players[index].name} 指定守 ${slot}`);
+    game.addManagementLog(`${game.roster.players[index].name} 指定守 ${slot}`);
   }
 }
 
@@ -2717,11 +2949,15 @@ function buyScoutReport(pool) {
   if (typeof renderGachaPoolPreview === 'function') renderGachaPoolPreview();
 }
 
-function showMatchSummary(result, playerScore, opponentScore, currency) {
+function showMatchSummary(result, playerScore, opponentScore, currency, heatReward = 0, standingsHTML = '') {
   const modal = document.getElementById('match-summary-modal');
   document.getElementById('summary-result').textContent = `${i18n.matchSummary}: ${result}`;
   document.getElementById('summary-score').textContent = `${i18n.score}: ${playerScore} - ${opponentScore}`;
   document.getElementById('summary-reward').textContent = `${i18n.scoutsPoints}: ${currency}`;
+  const heat = document.getElementById('summary-heat');
+  if (heat) heat.textContent = `球場熱度收益：+${heatReward} SP`;
+  const standings = document.getElementById('summary-standings');
+  if (standings) standings.innerHTML = standingsHTML;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
