@@ -274,6 +274,73 @@ const INTERNATIONAL_STAR_CANDIDATES = [
   { name: '吉田正尚', englishName: 'Masataka Yoshida', nickname: '肌肉吉田', role: 'B', position: 'OF/DH', team: 'MLB', abilities: { contact: 88, power: 78, speed: 58, fielding: 65, arm: 70, discipline: 87, clutch: 85 }, physical: { velocity: 70, power: 78, control: 88, speed: 58 }, traits: [i18n.clutchHitter] }
 ];
 
+const TRAIT_DESCRIPTIONS = {
+  [i18n.legendaryHitter]: '傳奇級打者，關鍵打席更容易打出長打。',
+  [i18n.elitePitcher]: '投球能力提升，球速與變化球在打席中加成。',
+  [i18n.rareSlugger]: '稀有重砲型球員，長打潛力高。',
+  [i18n.clutchHitter]: '關鍵時刻打者，落後或壘上有人時較穩。',
+  [i18n.powerHitter]: '力量打者，長打與全壘打機率提升。',
+  [i18n.buntSpecialist]: '小球與跑壘型球員，推進與速度價值較高。',
+  [i18n.disciplined]: '選球眼佳，較不容易追打壞球，保送率提高。',
+  '盜壘好手': '跑壘判斷與速度佳，適合激進跑壘與未來盜壘系統。',
+  '大心臟': '得點圈有人時巧打與長打提升。',
+  '恐左': '面對左投時巧打與長打下降。',
+  '滾地球投手': '壓低對手長打，較容易製造滾地出局。',
+  '王牌': '危機處理與球威上升，後段局數更穩。',
+  '怪力': '長打與全壘打機率大幅提升。',
+  '守備職人': '守備範圍與失誤抑制能力提升。',
+  '對左強': '面對左投或左打時表現提升。',
+  '選球眼': '選球與壞球判斷提升，較容易取得保送。',
+  '低球打': '面對變化球或低角度球路時較容易形成強勁擊球。',
+  '玻璃體質': '傷病風險提高，連續出賽需要更謹慎。',
+  '控球不穩': '投球容易壞球，保送風險提高。',
+  '慢熱': '比賽前段能力較低，後段逐漸回穩。'
+};
+
+const TRAIT_TIERS = {
+  [i18n.legendaryHitter]: 'gold',
+  [i18n.elitePitcher]: 'gold',
+  '大心臟': 'gold',
+  '王牌': 'gold',
+  '怪力': 'gold',
+  '守備職人': 'gold',
+  [i18n.powerHitter]: 'blue',
+  [i18n.disciplined]: 'blue',
+  [i18n.buntSpecialist]: 'blue',
+  '盜壘好手': 'blue',
+  '對左強': 'blue',
+  '選球眼': 'blue',
+  '低球打': 'blue',
+  '恐左': 'red',
+  '玻璃體質': 'red',
+  '控球不穩': 'red',
+  '慢熱': 'red'
+};
+
+const CONDITION_EFFECTS = {
+  excellent: { label: '絕好調', modifier: 5, injury: -0.01 },
+  good: { label: '好調', modifier: 2, injury: -0.005 },
+  normal: { label: '普通', modifier: 0, injury: 0 },
+  poor: { label: '不調', modifier: -3, injury: 0.01 },
+  awful: { label: '絕不調', modifier: -6, injury: 0.025 }
+};
+
+const PITCH_TYPE_LIBRARY = [
+  '四縫線', '二縫線', '滑球', '曲球', '指叉', '變速球', '卡特球', '伸卡球'
+];
+
+function getTraitDescription(trait) {
+  return TRAIT_DESCRIPTIONS[trait] || '特殊能力，會在特定比賽情境影響表現。';
+}
+
+function getTraitTier(trait) {
+  return TRAIT_TIERS[trait] || 'blue';
+}
+
+function getConditionLabel(condition) {
+  return CONDITION_EFFECTS[condition]?.label || CONDITION_EFFECTS.normal.label;
+}
+
 // StatMapper Class - Converts real stats to game attributes
 class StatMapper {
   constructor() {
@@ -312,7 +379,11 @@ class StatMapper {
       fielding: clampInt(fielding),
       arm: clampInt(arm),
       discipline: clampInt(discipline),
-      clutch: clampInt(clutch)
+      clutch: clampInt(clutch),
+      vsLeft: clampInt(contact * 0.55 + discipline * 0.25 + (stats.bats === 'R' ? 12 : stats.bats === 'L' ? -4 : 4)),
+      vsRight: clampInt(contact * 0.58 + power * 0.18 + (stats.bats === 'L' ? 10 : stats.bats === 'R' ? 3 : 5)),
+      scoringPosition: clampInt(clutch),
+      pinchHitter: clampInt(power * 0.4 + discipline * 0.35 + contact * 0.25)
     };
   }
 
@@ -328,7 +399,13 @@ class StatMapper {
       breaking: clampInt(breaking),
       stamina: clampInt(stamina),
       fielding: clampInt(fielding),
-      discipline: clampInt(control * 0.7 + breaking * 0.3)
+      discipline: clampInt(control * 0.7 + breaking * 0.3),
+      stuff: clampInt(velocity * 0.48 + breaking * 0.36 + control * 0.16),
+      vsLeft: clampInt(breaking * 0.45 + control * 0.35 + (stats.throws === 'L' ? 12 : 2)),
+      crisis: clampInt(control * 0.4 + breaking * 0.35 + this.scale(stats.whip || 1.2, 0.90, 1.45, true) * 0.25),
+      pickoff: clampInt(control * 0.45 + fielding * 0.35 + (stats.starts || 0) * 0.4),
+      quickDelivery: clampInt(control * 0.35 + velocity * 0.25 + fielding * 0.4),
+      recovery: clampInt((stats.position === 'RP' ? 78 : 62) + this.scale(stats.ip || 80, 40, 170) * 0.18)
     };
   }
 
@@ -430,14 +507,21 @@ class StatMapper {
     const traits = [];
     if (stats.role === 'P') {
       if (abilities.velocity >= 82 || abilities.control >= 82) traits.push(i18n.elitePitcher);
+      if (abilities.stuff >= 86 && abilities.crisis >= 82) traits.push('王牌');
       if ((stats.fip || 9) <= 2.9) traits.push('滾地球投手');
+      if (abilities.control <= 58 || (stats.bbRate || 0) >= 8.5) traits.push('控球不穩');
     } else {
       if (abilities.power >= 82) traits.push(i18n.powerHitter);
+      if (abilities.power >= 90) traits.push('怪力');
       if (abilities.speed >= 82) traits.push(i18n.buntSpecialist);
       if (abilities.discipline >= 82) traits.push(i18n.disciplined);
+      if (abilities.discipline >= 86) traits.push('選球眼');
+      if (abilities.fielding >= 88) traits.push('守備職人');
+      if (abilities.vsLeft >= 82) traits.push('對左強');
       if (abilities.speed >= 84 || (stats.sb || 0) >= 18) traits.push('盜壘好手');
       if (abilities.clutch >= 84) traits.push('大心臟');
       if ((stats.kRate || 0) >= 21 && (stats.bbRate || 0) < 8) traits.push('恐左');
+      if (abilities.power >= 78 && abilities.contact >= 76) traits.push('低球打');
     }
     return traits;
   }
@@ -522,6 +606,8 @@ class Player {
     this.throws = meta.throws || (this.role === 'P' || this.role === 'T' ? (Math.random() < 0.28 ? 'L' : 'R') : 'R');
     this.sourceStats = meta.sourceStats || {};
     this.abilities = this.normalizeAbilities(meta.abilities);
+    this.condition = meta.condition || 'normal';
+    this.pitchTypes = Array.isArray(meta.pitchTypes) ? meta.pitchTypes : this.generatePitchTypes();
   }
 
   normalizeAbilities(abilities = {}) {
@@ -531,7 +617,13 @@ class Player {
       breaking: this.physical.control,
       stamina: this.maxStamina,
       fielding: this.physical.speed,
-      discipline: this.physical.control
+      discipline: this.physical.control,
+      stuff: Math.round((this.physical.velocity + this.physical.control) / 2),
+      vsLeft: this.physical.control,
+      crisis: this.physical.control,
+      pickoff: this.physical.control,
+      quickDelivery: this.physical.speed,
+      recovery: 70
     } : {
       contact: this.physical.control,
       power: this.physical.power,
@@ -539,11 +631,41 @@ class Player {
       fielding: Math.round((this.physical.speed + this.physical.velocity) / 2),
       arm: this.physical.velocity,
       discipline: this.physical.control,
-      clutch: this.physical.power
+      clutch: this.physical.power,
+      vsLeft: this.physical.control,
+      vsRight: this.physical.control,
+      scoringPosition: this.physical.power,
+      pinchHitter: Math.round((this.physical.control + this.physical.power) / 2)
     };
     return Object.fromEntries(
       Object.entries({ ...defaults, ...abilities }).map(([key, value]) => [key, clampInt(value)])
     );
+  }
+
+  generatePitchTypes() {
+    if (!this.canPitch()) return [];
+    const velocity = this.abilities.velocity || this.physical.velocity;
+    const control = this.abilities.control || this.physical.control;
+    const breaking = this.abilities.breaking || control;
+    const stuff = this.abilities.stuff || Math.round((velocity + breaking) / 2);
+    const arsenal = [
+      { name: '四縫線', speed: velocity, movement: 45, control: control, stuff: stuff, slugRisk: 64 }
+    ];
+    if (control >= 70) arsenal.push({ name: '二縫線', speed: velocity - 3, movement: 62, control: control + 2, stuff: stuff - 1, slugRisk: 54 });
+    if (breaking >= 70) arsenal.push({ name: '滑球', speed: velocity - 8, movement: breaking, control: control - 3, stuff: stuff + 2, slugRisk: 48 });
+    if (breaking >= 76) arsenal.push({ name: '曲球', speed: velocity - 14, movement: breaking + 4, control: control - 5, stuff: stuff + 1, slugRisk: 44 });
+    if (stuff >= 82) arsenal.push({ name: '指叉', speed: velocity - 10, movement: breaking + 6, control: control - 8, stuff: stuff + 5, slugRisk: 38 });
+    if (control >= 78) arsenal.push({ name: '變速球', speed: velocity - 16, movement: breaking - 2, control: control + 3, stuff: stuff - 2, slugRisk: 46 });
+    if (velocity >= 86) arsenal.push({ name: '卡特球', speed: velocity - 5, movement: breaking - 1, control: control - 1, stuff: stuff + 1, slugRisk: 52 });
+    if (control >= 82 && breaking >= 74) arsenal.push({ name: '伸卡球', speed: velocity - 6, movement: breaking + 1, control: control + 1, stuff: stuff, slugRisk: 42 });
+    return arsenal.slice(0, 5).map(pitch => ({
+      name: pitch.name,
+      speed: clampInt(pitch.speed),
+      movement: clampInt(pitch.movement),
+      control: clampInt(pitch.control),
+      stuff: clampInt(pitch.stuff),
+      slugRisk: clampInt(pitch.slugRisk)
+    }));
   }
 
   canPitch() {
@@ -620,6 +742,20 @@ class Player {
     return clampInt(ctrl);
   }
 
+  getConditionModifier() {
+    return CONDITION_EFFECTS[this.condition]?.modifier || 0;
+  }
+
+  rollCondition() {
+    const roll = Math.random();
+    if (roll < 0.10) this.condition = 'excellent';
+    else if (roll < 0.28) this.condition = 'good';
+    else if (roll < 0.72) this.condition = 'normal';
+    else if (roll < 0.90) this.condition = 'poor';
+    else this.condition = 'awful';
+    return this.condition;
+  }
+
   consumeStamina(amount) {
     let multiplier = this.burnLifeActive ? 3 : 1;
     this.state.stamina -= amount * multiplier;
@@ -662,9 +798,12 @@ class Player {
 
   checkInjury(medicalCenter = null, playerIndex = null) {
     let effectiveProb = this.injuryProbability;
+    effectiveProb += CONDITION_EFFECTS[this.condition]?.injury || 0;
     if (medicalCenter && playerIndex !== null) {
       effectiveProb = medicalCenter.getInjuryProbability(playerIndex);
+      effectiveProb += CONDITION_EFFECTS[this.condition]?.injury || 0;
     }
+    effectiveProb = Math.max(0, effectiveProb);
     if (Math.random() < effectiveProb) {
       // Injury: reduce stamina temporarily
       this.maxStamina = clampInt(this.maxStamina * 0.8, 1, 120);
@@ -881,6 +1020,8 @@ class SaveManager {
         maxStamina: p.maxStamina,
         maxMana: p.maxMana,
         traits: p.traits,
+        condition: p.condition,
+        pitchTypes: p.pitchTypes,
         growthPotential: p.growthPotential,
         injuryProbability: p.injuryProbability,
         ageDecline: p.ageDecline,
@@ -909,6 +1050,8 @@ class SaveManager {
       rotationSlot: game.rotationSlot,
       scoutingReports: game.scoutingReports,
       baserunningMode: game.baserunningMode,
+      offenseApproach: game.offenseApproach,
+      pitchPlan: game.pitchPlan,
       currentSeasonEvent: game.currentSeasonEvent,
       protectionBuffs: game.medicalCenter.protectionBuffs
     };
@@ -947,6 +1090,8 @@ class SaveManager {
             level: p.level,
             bats: p.bats,
             throws: p.throws,
+            condition: p.condition,
+            pitchTypes: p.pitchTypes,
             sourceStats: p.sourceStats
           }
         );
@@ -985,6 +1130,8 @@ class SaveManager {
       game.rotationSlot = data.rotationSlot || 0;
       game.scoutingReports = data.scoutingReports || game.scoutingReports;
       game.baserunningMode = data.baserunningMode || game.baserunningMode;
+      game.offenseApproach = data.offenseApproach || game.offenseApproach;
+      game.pitchPlan = data.pitchPlan || game.pitchPlan;
       game.currentSeasonEvent = data.currentSeasonEvent || game.currentSeasonEvent;
       game.normalizeManagementState();
     }
@@ -1068,6 +1215,8 @@ class Game {
     this.rotationSlot = 0;
     this.scoutingReports = { local: false, international: false };
     this.baserunningMode = 'normal';
+    this.offenseApproach = 'normal';
+    this.pitchPlan = 'balanced';
     this.currentSeasonEvent = null;
     this.crowdEnergy = 50;
     this.normalizeManagementState();
@@ -1243,6 +1392,28 @@ class Game {
     return true;
   }
 
+  replaceLineupSlot(slot, index) {
+    this.normalizeManagementState();
+    const player = this.roster.players[index];
+    if (!player || !player.canBat() || player.level === 'minor') return false;
+    if (slot < 0 || slot >= this.playerBattingOrder.length) return false;
+    const existingSlot = this.playerBattingOrder.indexOf(index);
+    if (existingSlot >= 0) {
+      [this.playerBattingOrder[slot], this.playerBattingOrder[existingSlot]] = [this.playerBattingOrder[existingSlot], this.playerBattingOrder[slot]];
+    } else {
+      const removed = this.playerBattingOrder[slot];
+      this.playerBattingOrder[slot] = index;
+      Object.keys(this.defensiveAssignments).forEach(position => {
+        if (this.defensiveAssignments[position] === removed) delete this.defensiveAssignments[position];
+      });
+    }
+    this.playerNextBatterIndex = 0;
+    this.autoAssignDefense();
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
   cycleDefensePosition(index) {
     this.normalizeManagementState();
     const currentSlot = this.defensiveSlots.find(slot => this.defensiveAssignments[slot] === index);
@@ -1259,6 +1430,19 @@ class Game {
       }
     }
     return currentSlot || '';
+  }
+
+  assignDefenseSlot(slot, index) {
+    this.normalizeManagementState();
+    const player = this.roster.players[index];
+    if (!this.defensiveSlots.includes(slot) || !player || !player.canBat() || !this.playerBattingOrder.includes(index)) return false;
+    Object.keys(this.defensiveAssignments).forEach(position => {
+      if (this.defensiveAssignments[position] === index || position === slot) delete this.defensiveAssignments[position];
+    });
+    this.defensiveAssignments[slot] = index;
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
   }
 
   togglePlayerLevel(index) {
@@ -1284,6 +1468,17 @@ class Game {
     return true;
   }
 
+  selectStartingPitcher(index) {
+    if (!this.roster.setActivePitcher(index)) return false;
+    const rotationIndex = this.rotationOrder.indexOf(index);
+    if (rotationIndex >= 0) this.rotationSlot = rotationIndex;
+    this.pitcher = this.roster.players[index];
+    this.addToLog(`賽前指定先發投手：${this.pitcher.name}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
   getAssignedPosition(index) {
     return this.defensiveSlots.find(slot => this.defensiveAssignments[slot] === index) || '';
   }
@@ -1294,17 +1489,18 @@ class Game {
       return player ? player.getPositionPenalty(slot) : 20;
     });
     if (!penalties.length) return 0;
-    return penalties.reduce((sum, value) => sum + value, 0) / penalties.length;
+    return (penalties.reduce((sum, value) => sum + value, 0) / penalties.length) - this.getTeamBonuses().defense;
   }
 
   getGameSituationLabel() {
     const matchup = this.getCurrentMatchup();
     const leverage = this.isHighLeverage() ? '關鍵局面' : '一般局面';
-    return `${matchup.offenseLabel}進攻 · ${matchup.batter.name} vs ${matchup.pitcher.name} · ${leverage}`;
+    const plan = matchup.battingTeam === 'player' ? this.getOffenseApproachLabel() : this.getPitchPlanLabel();
+    return `${matchup.offenseLabel}進攻 · ${matchup.batter.name} vs ${matchup.pitcher.name} · ${leverage} · ${plan}`;
   }
 
   getCrowdEnergy() {
-    const base = 45 + this.playerScore * 8 - this.opponentScore * 5 + this.inning * 2;
+    const base = 45 + this.playerScore * 8 - this.opponentScore * 5 + this.inning * 2 + this.getTeamBonuses().morale;
     const leverage = this.isHighLeverage() ? 20 : 0;
     this.crowdEnergy = clampInt(base + leverage, 5, 99);
     return this.crowdEnergy;
@@ -1327,6 +1523,86 @@ class Game {
     if (this.baserunningMode === 'conservative') return -0.18;
     if (this.baserunningMode === 'aggressive') return 0.18;
     return 0;
+  }
+
+  getOffenseApproachLabel() {
+    return { patient: '等球', normal: '普通', aggressive: '積極' }[this.offenseApproach] || '普通';
+  }
+
+  setOffenseApproach(mode) {
+    if (!['patient', 'normal', 'aggressive'].includes(mode)) return false;
+    this.offenseApproach = mode;
+    this.addToLog(`進攻策略改為：${this.getOffenseApproachLabel()}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  getPitchPlanLabel() {
+    return { fastball: '速球為主', balanced: '混合配球', breaking: '變化球為主', waste: '壞球引誘' }[this.pitchPlan] || '混合配球';
+  }
+
+  setPitchPlan(plan) {
+    if (!['fastball', 'balanced', 'breaking', 'waste'].includes(plan)) return false;
+    this.pitchPlan = plan;
+    this.addToLog(`投球策略改為：${this.getPitchPlanLabel()}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  getTeamBonuses() {
+    this.normalizeManagementState();
+    const starters = this.playerBattingOrder.map(index => this.roster.players[index]).filter(Boolean);
+    const teamCounts = starters.reduce((counts, player) => {
+      counts[player.team] = (counts[player.team] || 0) + 1;
+      return counts;
+    }, {});
+    const sameTeamMax = Math.max(0, ...Object.values(teamCounts));
+    const localOnly = starters.length >= 9 && starters.every(player => player.team !== 'MLB' && player.team !== 'NPB');
+    return {
+      defense: sameTeamMax >= 3 ? 2 : 0,
+      hitting: sameTeamMax >= 5 ? 3 : 0,
+      morale: localOnly ? 10 : 0,
+      label: [
+        sameTeamMax >= 3 ? '同隊3人：守備 +2' : '',
+        sameTeamMax >= 5 ? '同隊5人：打擊 +3' : '',
+        localOnly ? '純本土打線：球迷熱度 +10' : ''
+      ].filter(Boolean).join(' / ') || '尚未觸發隊伍加成'
+    };
+  }
+
+  trainPlayer(index, focus) {
+    const player = this.roster.players[index];
+    if (!player) return { success: false, message: '找不到球員。' };
+    const plans = {
+      hitting: { label: '打擊特訓', cost: 80, keys: ['contact', 'power', 'discipline'], xp: 18 },
+      defense: { label: '守備特訓', cost: 70, keys: ['fielding', 'arm'], xp: 14 },
+      running: { label: '跑壘特訓', cost: 60, keys: ['speed'], xp: 12 },
+      pitching: { label: '投手控球營', cost: 80, keys: ['control', 'breaking', 'stuff'], xp: 18 },
+      stamina: { label: '體能訓練', cost: 65, keys: ['stamina'], xp: 10 }
+    };
+    const plan = plans[focus];
+    if (!plan) return { success: false, message: '未知訓練。' };
+    if (this.currency < plan.cost) return { success: false, message: i18n.notEnoughCurrency };
+    if (focus === 'pitching' && !player.canPitch()) return { success: false, message: '這名球員不是投手。' };
+    if (['hitting', 'running'].includes(focus) && !player.canBat()) return { success: false, message: '這名球員不是野手。' };
+    this.currency -= plan.cost;
+    const growth = Math.max(1, Math.round(1 + player.growthPotential / 32));
+    plan.keys.forEach(key => {
+      if (key === 'stamina') {
+        player.maxStamina = clampInt(player.maxStamina + growth, 1, 120);
+        player.state.fatigue = clampInt(player.state.fatigue + 8, 0, 100);
+      } else {
+        player.abilities[key] = clampInt((player.abilities[key] || 60) + growth);
+      }
+    });
+    player.gainXP(plan.xp);
+    player.pitchTypes = player.generatePitchTypes();
+    this.addToLog(`${player.name} 完成${plan.label}，能力 +${growth}。`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return { success: true, message: `${plan.label}完成：${player.name}` };
   }
 
   attemptPickoff() {
@@ -1484,8 +1760,9 @@ class Game {
           <span>${p.getRoleLabel()}</span>
           <span>${p.position}</span>
           <span>${p.level === 'minor' ? '二軍' : '一軍'}</span>
+          <span>調子 ${getConditionLabel(p.condition)}</span>
           <span>${sourceLine}</span>
-          ${p.traits.slice(0, 3).map(trait => `<span>${trait}</span>`).join('')}
+          ${p.traits.slice(0, 4).map(trait => `<span class="trait-pill trait-${getTraitTier(trait)}" title="${getTraitDescription(trait)}">${trait}</span>`).join('')}
           ${lineupSpot >= 0 ? `<span>第 ${lineupSpot + 1} 棒</span>` : ''}
           ${assignedPosition ? `<span>守 ${assignedPosition}${positionPenalty ? ` -${positionPenalty}` : ''}</span>` : ''}
         </div>
@@ -1503,6 +1780,7 @@ class Game {
           <button class="card-btn card-btn-small" onclick="moveLineup(${i}, 1)" ${lineupSpot >= 0 && lineupSpot < this.playerBattingOrder.length - 1 ? '' : 'disabled'}>↓</button>
           <button class="card-btn card-btn-defense" onclick="cycleDefense(${i})" ${p.canBat() ? '' : 'disabled'}>守位</button>
           <button class="card-btn card-btn-level" onclick="togglePlayerLevel(${i})">${p.level === 'minor' ? '升一軍' : '下二軍'}</button>
+          <button class="card-btn card-btn-detail" onclick="openPlayerDetail(${i})">詳細</button>
         </div>
       `;
       
@@ -1581,12 +1859,12 @@ class Game {
     const hitter = batter || this.getCurrentMatchup().batter;
     const scoreRunner = () => { this[scoreKey]++; };
 
-    if (outcome === 'Walk') {
+    if (outcome === i18n.walk || outcome === 'Walk') {
       if (runners[0] && runners[1] && runners[2]) scoreRunner();
       if (runners[0] && runners[1]) runners[2] = runners[1];
       if (runners[0]) runners[1] = runners[0];
       runners[0] = hitter;
-    } else if (outcome === 'Single') {
+    } else if (outcome === i18n.single || outcome === 'Single') {
       const old = [...runners];
       const extra = Math.random() < (0.38 + this.getRunnerAdvanceBonus());
       runners[0] = hitter;
@@ -1594,7 +1872,7 @@ class Game {
       runners[2] = old[1] && !extra ? old[1] : null;
       if (old[2]) scoreRunner();
       if (old[1] && extra) scoreRunner();
-    } else if (outcome === 'Double') {
+    } else if (outcome === i18n.double || outcome === 'Double') {
       const old = [...runners];
       const extra = Math.random() < (0.45 + this.getRunnerAdvanceBonus());
       if (old[2]) scoreRunner();
@@ -1603,12 +1881,12 @@ class Game {
       runners[0] = null;
       runners[1] = hitter;
       runners[2] = old[0] && !extra ? old[0] : null;
-    } else if (outcome === 'Triple') {
+    } else if (outcome === i18n.triple || outcome === 'Triple') {
       this[scoreKey] += runners.filter(Boolean).length;
       runners[0] = null;
       runners[1] = null;
       runners[2] = hitter;
-    } else if (outcome === 'Home Run') {
+    } else if (outcome === i18n.homeRun || outcome === 'Home Run') {
       this[scoreKey] += 1 + runners.filter(Boolean).length;
       runners[0] = null;
       runners[1] = null;
@@ -1729,6 +2007,7 @@ class Game {
       player.state.stamina = clampInt(player.state.stamina + recovery, 0, player.maxStamina);
       player.state.mana = clampInt(player.state.mana + 25, 0, player.maxMana);
       player.state.fatigue = clampInt(player.state.fatigue - 12, 0, 100);
+      player.rollCondition();
     });
     this.medicalCenter.updateProtectionStatus();
   }
@@ -2100,20 +2379,41 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
   let pow = batter.getEffectivePower();
   let spd = batter.abilities?.speed || batter.physical.speed;
   let discipline = batter.abilities?.discipline || contact;
+  const pitcherCondition = pitcher.getConditionModifier ? pitcher.getConditionModifier() : 0;
+  const batterCondition = batter.getConditionModifier ? batter.getConditionModifier() : 0;
+  vel += pitcherCondition;
+  ctrl += pitcherCondition;
+  breaking += pitcherCondition;
+  contact += batterCondition;
+  pow += batterCondition;
+  spd += batterCondition;
+  discipline += batterCondition;
 
   if (pitcher.traits.includes(i18n.elitePitcher)) {
     vel += 4;
     breaking += 4;
   }
+  if (pitcher.traits.includes('王牌') && game.isHighLeverage()) {
+    ctrl += 5;
+    breaking += 4;
+  }
+  if (pitcher.traits.includes('控球不穩')) ctrl -= 6;
   if (batter.traits.includes(i18n.powerHitter)) pow += 5;
+  if (batter.traits.includes('怪力')) pow += 7;
   if (batter.traits.includes(i18n.disciplined)) discipline += 6;
+  if (batter.traits.includes('選球眼')) discipline += 7;
+  if (batter.traits.includes('低球打') && game.pitchPlan === 'breaking') contact += 4;
+  if (batter.traits.includes('對左強') && pitcher.throws === 'L') {
+    contact += 6;
+    pow += 4;
+  }
   if (batter.traits.includes('恐左') && pitcher.throws === 'L') {
     contact -= 8;
     pow -= 6;
     game.addToLog(`${batter.name} 有恐左傾向，面對左投打擊下修。`);
   }
   if (batter.traits.includes('大心臟') && game.getCurrentRunners().some((runner, index) => runner && index >= 1)) {
-    contact += 7;
+    contact += 7 + Math.round((batter.abilities.scoringPosition || 70) / 30);
     pow += 5;
     game.addToLog(`${batter.name} 大心臟發動，得點圈有人時更冷靜。`);
   }
@@ -2127,6 +2427,63 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
   if (game.currentTactic === '情蒐奏效' && battingTeam === 'opponent') {
     contact -= 5;
     pow -= 4;
+  }
+  if (pitcher.throws === 'L') contact += ((batter.abilities.vsLeft || contact) - 70) / 4;
+  if (pitcher.throws !== 'L') contact += ((batter.abilities.vsRight || contact) - 70) / 5;
+  if (game.getCurrentRunners().some((runner, index) => runner && index >= 1)) {
+    contact += ((batter.abilities.scoringPosition || contact) - 70) / 5;
+    ctrl += ((pitcher.abilities.crisis || ctrl) - 70) / 5;
+  }
+  const teamBonuses = game.getTeamBonuses();
+  if (battingTeam === 'player') {
+    contact += teamBonuses.hitting;
+    pow += teamBonuses.hitting;
+  }
+  if (battingTeam === 'player') {
+    if (game.offenseApproach === 'aggressive') {
+      pow += 6;
+      contact -= 2;
+      discipline -= 6;
+    } else if (game.offenseApproach === 'patient') {
+      discipline += 10;
+      contact += 2;
+      pow -= 3;
+    }
+  }
+  let zonePlanMod = 0;
+  let swingPlanMod = 0;
+  let slugPlanMod = 0;
+  const pitchPool = Array.isArray(pitcher.pitchTypes) ? pitcher.pitchTypes : [];
+  const selectedPitch = game.pitchPlan === 'fastball'
+    ? pitchPool.find(pitch => pitch.name.includes('縫線') || pitch.name.includes('卡特')) || pitchPool[0]
+    : game.pitchPlan === 'breaking'
+      ? pitchPool.slice().sort((a, b) => b.movement - a.movement)[0]
+      : game.pitchPlan === 'waste'
+        ? pitchPool.slice().sort((a, b) => b.control - a.control)[0]
+        : pitchPool[0];
+  if (battingTeam === 'opponent') {
+    if (game.pitchPlan === 'fastball') {
+      vel += 5;
+      breaking -= 2;
+      zonePlanMod += 0.04;
+      slugPlanMod += 0.05;
+    } else if (game.pitchPlan === 'breaking') {
+      breaking += 7;
+      ctrl -= 3;
+      zonePlanMod -= 0.03;
+      slugPlanMod -= 0.04;
+    } else if (game.pitchPlan === 'waste') {
+      ctrl -= 6;
+      zonePlanMod -= 0.13;
+      swingPlanMod += 0.08;
+      slugPlanMod -= 0.03;
+    }
+  }
+  if (selectedPitch && battingTeam === 'opponent') {
+    vel += (selectedPitch.speed - 75) / 18;
+    breaking += (selectedPitch.movement - 70) / 12;
+    ctrl += (selectedPitch.control - 70) / 16;
+    slugPlanMod += (selectedPitch.slugRisk - 55) / 260;
   }
 
   let shadowClone = game.cardManager.activeEffects.shadowClone;
@@ -2148,8 +2505,11 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
 
   while (balls < 4 && strikes < 3 && pitchCount < 9) {
     pitchCount++;
-    const zoneProb = Math.max(0.18, Math.min(0.82, 0.48 + (ctrl - 75) / 150 + (vel - 85) / 220 + gaussianRandom(0, 0.04)));
-    const swingProb = Math.max(0.22, Math.min(0.78, 0.44 + (pow - 75) / 260 - (discipline - 75) / 280 + strikes * 0.04 - balls * 0.03));
+    const approachSwing = battingTeam === 'player'
+      ? (game.offenseApproach === 'aggressive' ? 0.12 : game.offenseApproach === 'patient' ? -0.12 : 0)
+      : 0;
+    const zoneProb = Math.max(0.18, Math.min(0.82, 0.48 + zonePlanMod + (ctrl - 75) / 150 + (vel - 85) / 220 + gaussianRandom(0, 0.04)));
+    const swingProb = Math.max(0.22, Math.min(0.78, 0.44 + swingPlanMod + approachSwing + (pow - 75) / 260 - (discipline - 75) / 280 + strikes * 0.04 - balls * 0.03));
     const inZone = Math.random() < zoneProb;
     const swings = inZone || Math.random() < swingProb;
 
@@ -2181,7 +2541,7 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
     }
 
     let hitRand = Math.random() + gaussianRandom(0, 0.08);
-    hitRand += (pow - 78) / 360 + (spd - 75) / 500;
+    hitRand += slugPlanMod + (pow - 78) / 360 + (spd - 75) / 500;
     if (battingTeam === 'opponent') hitRand += game.getTeamDefenseModifier() / 140;
     if (shadowClone) hitRand -= 0.2;
 
@@ -2311,15 +2671,10 @@ function activateCard(index) {
 }
 
 function setActivePitcher(index) {
-  if (!game.roster.setActivePitcher(index)) {
+  if (!game.selectStartingPitcher(index)) {
     game.addToLog(`${game.roster.players[index]?.name || '球員'} 不是投手，不能登板。`);
     return;
   }
-  game.pitcher = game.roster.players[index];
-  const rotationIndex = game.rotationOrder.indexOf(index);
-  if (rotationIndex >= 0) game.rotationSlot = rotationIndex;
-  game.addToLog(`投手更換：${game.roster.players[index].name}`);
-  game.updateUI();
 }
 
 function setActiveBatter(index) {
@@ -2338,9 +2693,19 @@ function moveLineup(index, direction) {
   game.movePlayerInLineup(index, direction);
 }
 
+function replaceLineupSlot(slot, index) {
+  game.replaceLineupSlot(slot, index);
+}
+
 function cycleDefense(index) {
   const slot = game.cycleDefensePosition(index);
   if (slot) game.addToLog(`${game.roster.players[index].name} 改守 ${slot}`);
+}
+
+function assignDefenseSlot(slot, index) {
+  if (game.assignDefenseSlot(slot, index)) {
+    game.addToLog(`${game.roster.players[index].name} 指定守 ${slot}`);
+  }
 }
 
 function togglePlayerLevel(index) {

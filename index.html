@@ -122,6 +122,11 @@
               <h3>今日先發打線</h3>
               <div id="pregame-lineup"></div>
             </section>
+            <section class="side-panel">
+              <h3>守位與板凳</h3>
+              <div id="pregame-defense"></div>
+              <div id="pregame-bench"></div>
+            </section>
           </div>
         </section>
 
@@ -145,6 +150,25 @@
                 <div>
                   <span>對手</span>
                   <strong id="score-opponent">0</strong>
+                </div>
+              </div>
+              <div class="strategy-grid" aria-label="打席戰術">
+                <div class="strategy-group">
+                  <span>進攻策略</span>
+                  <div class="strategy-buttons">
+                    <button type="button" data-offense-plan="patient">等球</button>
+                    <button type="button" data-offense-plan="normal">普通</button>
+                    <button type="button" data-offense-plan="aggressive">積極</button>
+                  </div>
+                </div>
+                <div class="strategy-group">
+                  <span>投球策略</span>
+                  <div class="strategy-buttons">
+                    <button type="button" data-pitch-plan="fastball">速球</button>
+                    <button type="button" data-pitch-plan="balanced">混合</button>
+                    <button type="button" data-pitch-plan="breaking">變化</button>
+                    <button type="button" data-pitch-plan="waste">引誘</button>
+                  </div>
                 </div>
               </div>
               <div class="control-row" aria-label="比賽操作">
@@ -307,6 +331,13 @@
     </div>
   </div>
 
+  <div id="player-detail-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="player-detail-title">
+    <div class="modal-box player-detail-box">
+      <button class="modal-close" type="button" onclick="closePlayerDetail()" aria-label="關閉">×</button>
+      <div id="player-detail-content"></div>
+    </div>
+  </div>
+
   <script src="game.js"></script>
   <script>
     Object.assign(i18n, {
@@ -334,6 +365,7 @@
       medical: 'medical-tab'
     };
     let currentScene = 'lobby';
+    let pregameSelectedLineupSlot = 0;
 
     function sceneElement(name) {
       return document.getElementById(SCENE_ID[name]);
@@ -370,6 +402,16 @@
     };
 
     document.addEventListener('click', (event) => {
+      const offensePlan = event.target.closest('[data-offense-plan]');
+      if (offensePlan) {
+        game.setOffenseApproach(offensePlan.dataset.offensePlan);
+        return;
+      }
+      const pitchPlan = event.target.closest('[data-pitch-plan]');
+      if (pitchPlan) {
+        game.setPitchPlan(pitchPlan.dataset.pitchPlan);
+        return;
+      }
       const trigger = event.target.closest('[data-scene]');
       if (trigger) changeScene(trigger.dataset.scene);
     });
@@ -395,13 +437,13 @@
 
       const pitcherPanel = document.getElementById('pitcher-stamina');
       if (pitcherPanel) {
-        const pitcher = game.roster.activeLineup.pitcher || game.pitcher;
+        const pitcher = game.getCurrentMatchup?.().pitcher || game.roster.activeLineup.pitcher || game.pitcher;
         const stamina = Math.max(0, Math.round(pitcher.state.stamina));
         const max = Math.max(1, pitcher.maxStamina || 100);
         const pct = Math.max(0, Math.min(100, Math.round((stamina / max) * 100)));
         pitcherPanel.innerHTML = `
           <div class="pitcher-row">
-            <span>${pitcher.name}</span>
+            <span>${pitcher.name}｜調子 ${getConditionLabel(pitcher.condition)}</span>
             <strong>${stamina}/${max}</strong>
           </div>
           <div class="meter"><span style="width:${pct}%"></span></div>
@@ -430,6 +472,12 @@
         if (pickoff) pickoff.disabled = offense || !game.getCurrentRunners().some(Boolean);
         if (baserunning) baserunning.textContent = `跑壘：${game.getBaserunningLabel?.() || '普通'}`;
       }
+      document.querySelectorAll('[data-offense-plan]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.offensePlan === game.offenseApproach);
+      });
+      document.querySelectorAll('[data-pitch-plan]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.pitchPlan === game.pitchPlan);
+      });
 
       if (currentScene === 'medical') renderMedicalScene();
     }
@@ -458,29 +506,175 @@
       const opponent = document.getElementById('pregame-opponent');
       const rotation = document.getElementById('pregame-rotation');
       const lineup = document.getElementById('pregame-lineup');
-      if (!opponent || !rotation || !lineup) return;
+      const defense = document.getElementById('pregame-defense');
+      const bench = document.getElementById('pregame-bench');
+      if (!opponent || !rotation || !lineup || !defense || !bench) return;
 
       const abilityText = (player) => player.canPitch() && player.role === 'P'
-        ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 變化 ${player.abilities.breaking}`
-        : `巧打 ${player.abilities.contact} / 長打 ${player.abilities.power} / 走力 ${player.abilities.speed}`;
+        ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 球威 ${player.abilities.stuff}`
+        : `巧打 ${player.abilities.contact} / 長打 ${player.abilities.power} / 選球 ${player.abilities.discipline}`;
+      const teamBonus = game.getTeamBonuses();
+      const starters = new Set(game.playerBattingOrder);
+      const benchPlayers = game.roster.players
+        .map((player, index) => ({ player, index }))
+        .filter(({ player, index }) => player.level !== 'minor' && player.canBat() && !starters.has(index));
 
       opponent.innerHTML = `
         <p class="font-bold">${game.opponentTeam.name}</p>
         <p>先發：${game.opponentTeam.pitcher.name} (${abilityText(game.opponentTeam.pitcher)})</p>
-        ${game.opponentTeam.battingOrder.map((player, index) => `<p>${index + 1}. ${player.name}｜${abilityText(player)}</p>`).join('')}
+        <div class="pregame-button-list">
+          ${game.opponentTeam.battingOrder.map((player, index) => `<button class="pregame-row" type="button" title="${abilityText(player)}"><span>${index + 1}. ${player.name}</span><small>${player.position}｜${abilityText(player)}</small></button>`).join('')}
+        </div>
       `;
 
-      rotation.innerHTML = game.rotationOrder.map((playerIndex, orderIndex) => {
+      rotation.innerHTML = `<div class="pregame-button-list">${game.rotationOrder.map((playerIndex, orderIndex) => {
         const player = game.roster.players[playerIndex];
-        const active = orderIndex === game.rotationSlot ? 'font-bold text-blue-700' : '';
-        return `<p class="${active}">${orderIndex + 1}. ${player.name}｜體力 ${Math.round(player.state.stamina)}/${player.maxStamina}｜${abilityText(player)}</p>`;
-      }).join('');
+        const active = orderIndex === game.rotationSlot ? ' active' : '';
+        const pitches = player.pitchTypes?.map(pitch => pitch.name).slice(0, 3).join('、') || '球種未明';
+        return `<button class="pregame-row${active}" type="button" onclick="selectPregamePitcher(${playerIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}｜${pitches}</small></button>`;
+      }).join('')}</div><p class="pregame-note">${teamBonus.label}</p>`;
 
-      lineup.innerHTML = game.playerBattingOrder.map((playerIndex, orderIndex) => {
+      lineup.innerHTML = `<div class="pregame-button-list">${game.playerBattingOrder.map((playerIndex, orderIndex) => {
         const player = game.roster.players[playerIndex];
         const assigned = game.getAssignedPosition(playerIndex) || 'DH';
-        return `<p>${orderIndex + 1}. ${player.name}｜${assigned}｜${abilityText(player)}</p>`;
-      }).join('');
+        const selected = orderIndex === pregameSelectedLineupSlot ? ' active' : '';
+        return `<div class="pregame-row lineup-row${selected}" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, -1)" ${orderIndex === 0 ? 'disabled' : ''}>↑</button><button type="button" onclick="event.stopPropagation(); movePregameLineup(${playerIndex}, 1)" ${orderIndex === game.playerBattingOrder.length - 1 ? 'disabled' : ''}>↓</button><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
+      }).join('')}</div>`;
+
+      defense.innerHTML = `<div class="defense-grid">${game.defensiveSlots.map(slot => {
+        const playerIndex = game.defensiveAssignments[slot];
+        const player = game.roster.players[playerIndex];
+        const penalty = player ? player.getPositionPenalty(slot) : 0;
+        return `<button class="defense-slot" type="button" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></button>`;
+      }).join('')}</div>`;
+
+      bench.innerHTML = `
+        <h4>板凳｜點選後換入第 ${pregameSelectedLineupSlot + 1} 棒</h4>
+        <div class="pregame-button-list">
+          ${benchPlayers.map(({ player, index }) => `<button class="pregame-row bench-row" type="button" onclick="swapPregameLineup(${index})"><span>${player.name}</span><small>${player.position}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small></button>`).join('') || '<p class="pregame-note">目前沒有可用板凳野手。</p>'}
+        </div>
+      `;
+    }
+
+    function selectPregamePitcher(index) {
+      game.selectStartingPitcher(index);
+      renderPregameScene();
+    }
+
+    function selectPregameLineupSlot(slot) {
+      pregameSelectedLineupSlot = slot;
+      renderPregameScene();
+    }
+
+    function swapPregameLineup(index) {
+      game.replaceLineupSlot(pregameSelectedLineupSlot, index);
+      renderPregameScene();
+    }
+
+    function movePregameLineup(index, direction) {
+      game.movePlayerInLineup(index, direction);
+      pregameSelectedLineupSlot = Math.max(0, Math.min(game.playerBattingOrder.length - 1, pregameSelectedLineupSlot + direction));
+      renderPregameScene();
+    }
+
+    function cyclePregameDefense(index) {
+      game.cycleDefensePosition(index);
+      renderPregameScene();
+    }
+
+    function abilityGrid(player) {
+      const batterStats = [
+        ['巧打', player.abilities.contact],
+        ['長打', player.abilities.power],
+        ['走力', player.abilities.speed],
+        ['守備', player.abilities.fielding],
+        ['肩力', player.abilities.arm],
+        ['選球', player.abilities.discipline],
+        ['對左投', player.abilities.vsLeft],
+        ['對右投', player.abilities.vsRight],
+        ['得點圈', player.abilities.scoringPosition],
+        ['代打', player.abilities.pinchHitter]
+      ];
+      const pitcherStats = [
+        ['球速', player.abilities.velocity],
+        ['控球', player.abilities.control],
+        ['變化球', player.abilities.breaking],
+        ['體力', player.abilities.stamina],
+        ['球威', player.abilities.stuff],
+        ['對左打', player.abilities.vsLeft],
+        ['危機處理', player.abilities.crisis],
+        ['牽制', player.abilities.pickoff],
+        ['快速出手', player.abilities.quickDelivery],
+        ['恢復力', player.abilities.recovery]
+      ];
+      const rows = player.canPitch() && player.role === 'P' ? pitcherStats : batterStats;
+      return rows.map(([label, value]) => `<div class="detail-stat"><span>${label}</span><strong>${Math.round(value ?? 0)}</strong></div>`).join('');
+    }
+
+    function renderPlayerDetail(index) {
+      const player = game.roster.players[index];
+      const content = document.getElementById('player-detail-content');
+      if (!player || !content) return;
+      const rank = player.getRank();
+      const traits = player.traits.length
+        ? player.traits.map(trait => `<span class="trait-pill trait-${getTraitTier(trait)}" title="${getTraitDescription(trait)}">${trait}</span>`).join('')
+        : '<span class="trait-pill">無特能</span>';
+      const pitches = player.pitchTypes?.length
+        ? player.pitchTypes.map(pitch => `<div class="pitch-chip"><strong>${pitch.name}</strong><span>速 ${pitch.speed}</span><span>變 ${pitch.movement}</span><span>控 ${pitch.control}</span><span>威 ${pitch.stuff}</span></div>`).join('')
+        : '<p class="pregame-note">非投手，沒有球種資料。</p>';
+      content.innerHTML = `
+        <div class="detail-header">
+          <div>
+            <p class="eyebrow">Player Sheet</p>
+            <h2 id="player-detail-title">${player.name}</h2>
+            <p>${player.englishName || player.team} ${player.nickname ? `｜${player.nickname}` : ''}</p>
+          </div>
+          <span class="rank-tag badge-${rank.toLowerCase()}">${rank}</span>
+        </div>
+        <div class="detail-meta">
+          <span>${player.getRoleLabel()}</span>
+          <span>${player.position}</span>
+          <span>${player.level === 'minor' ? '二軍' : '一軍'}</span>
+          <span>調子 ${getConditionLabel(player.condition)}</span>
+          <span>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}</span>
+          <span>XP ${player.xp}</span>
+          <span>潛力 ${player.growthPotential}</span>
+        </div>
+        <div class="detail-traits">${traits}</div>
+        <div class="detail-grid">${abilityGrid(player)}</div>
+        <h3>球種</h3>
+        <div class="pitch-list">${pitches}</div>
+        <h3>二軍訓練</h3>
+        <div class="training-row">
+          <button type="button" onclick="trainPlayerFromDetail(${index}, 'hitting')">打擊 80</button>
+          <button type="button" onclick="trainPlayerFromDetail(${index}, 'defense')">守備 70</button>
+          <button type="button" onclick="trainPlayerFromDetail(${index}, 'running')">跑壘 60</button>
+          <button type="button" onclick="trainPlayerFromDetail(${index}, 'pitching')">投手 80</button>
+          <button type="button" onclick="trainPlayerFromDetail(${index}, 'stamina')">體能 65</button>
+        </div>
+        <p id="player-detail-message" class="pregame-note"></p>
+      `;
+    }
+
+    function openPlayerDetail(index) {
+      renderPlayerDetail(index);
+      const modal = document.getElementById('player-detail-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePlayerDetail() {
+      const modal = document.getElementById('player-detail-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function trainPlayerFromDetail(index, focus) {
+      const result = game.trainPlayer(index, focus);
+      renderPlayerDetail(index);
+      const message = document.getElementById('player-detail-message');
+      if (message) message.textContent = result.message;
+      renderPregameScene();
     }
 
     function medicalRiskClass(staminaPct) {
