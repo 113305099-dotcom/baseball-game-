@@ -6,8 +6,8 @@
   <title>CPBL 第七隊擴張模擬</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DotGothic16&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=1.17">
 </head>
 <body>
   <div class="container">
@@ -147,6 +147,33 @@
 
           <div class="match-grid">
             <section class="scoreboard-panel" aria-label="比賽資訊">
+              <div id="classic-scoreboard" class="classic-scoreboard" aria-label="像素記分板">
+                <div class="scoreboard-clock" aria-hidden="true">
+                  <span class="clock-hand hour"></span>
+                  <span class="clock-hand minute"></span>
+                </div>
+                <div class="scoreboard-status">
+                  <div><span>BATTER</span><strong id="board-batter">--</strong></div>
+                  <div><span>BALL</span><strong id="board-ball">0</strong></div>
+                  <div><span>STRIKE</span><strong id="board-strike">0</strong></div>
+                  <div><span>OUT</span><strong id="board-out">0</strong></div>
+                </div>
+                <div class="scoreboard-lines" role="table" aria-label="逐局比分">
+                  <div class="board-row board-head" role="row">
+                    <span>INNING</span><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>R</b><b>H</b><b>E</b>
+                  </div>
+                  <div class="board-row" role="row">
+                    <span id="board-visitor-name">VISITOR</span>
+                    <b id="line-visitor-1">0</b><b id="line-visitor-2">0</b><b id="line-visitor-3">0</b><b id="line-visitor-4">0</b><b id="line-visitor-5">0</b><b id="line-visitor-6">0</b><b id="line-visitor-7">0</b><b id="line-visitor-8">0</b><b id="line-visitor-9">0</b>
+                    <b id="line-visitor-r">0</b><b id="line-visitor-h">0</b><b id="line-visitor-e">0</b>
+                  </div>
+                  <div class="board-row" role="row">
+                    <span id="board-home-name">HOME</span>
+                    <b id="line-home-1">0</b><b id="line-home-2">0</b><b id="line-home-3">0</b><b id="line-home-4">0</b><b id="line-home-5">0</b><b id="line-home-6">0</b><b id="line-home-7">0</b><b id="line-home-8">0</b><b id="line-home-9">0</b>
+                    <b id="line-home-r">0</b><b id="line-home-h">0</b><b id="line-home-e">0</b>
+                  </div>
+                </div>
+              </div>
               <div class="score-row">
                 <div>
                   <span>第七隊</span>
@@ -179,11 +206,10 @@
               <div class="control-row" aria-label="比賽操作">
                 <button id="normal-pitch" class="control-button primary" type="button">正常投球</button>
                 <button id="magic-pitch" class="control-button danger" type="button">燃燒生命</button>
-                <button id="auto-sim" class="control-button" type="button">模擬打席</button>
                 <button id="steal-base" class="control-button accent" type="button">盜壘</button>
                 <button id="pickoff" class="control-button warning" type="button">牽制</button>
                 <button id="baserunning-mode" class="control-button ghost" type="button">跑壘：普通</button>
-                <button id="auto-toggle" class="control-button" type="button">自動模擬</button>
+                <button id="auto-toggle" class="control-button" type="button">全場自動</button>
                 <button id="toggle-weather" class="control-button ghost" type="button">切換天氣</button>
               </div>
               <div class="count-grid">
@@ -465,12 +491,13 @@
         const stamina = Math.max(0, Math.round(pitcher.state.stamina));
         const max = Math.max(1, pitcher.maxStamina || 100);
         const pct = Math.max(0, Math.min(100, Math.round((stamina / max) * 100)));
+        const meterState = pct < 30 ? 'danger' : pct < 60 ? 'warning' : 'safe';
         pitcherPanel.innerHTML = `
           <div class="pitcher-row">
             <span>${pitcher.name}｜調子 ${getConditionLabel(pitcher.condition)}</span>
             <strong>${stamina}/${max}</strong>
           </div>
-          <div class="meter"><span style="width:${pct}%"></span></div>
+          <div class="meter pitcher-meter ${meterState}"><span style="width:${pct}%"></span></div>
         `;
       }
 
@@ -486,14 +513,16 @@
       const normalPitch = document.getElementById('normal-pitch');
       const magicPitch = document.getElementById('magic-pitch');
       const autoSim = document.getElementById('auto-sim');
+      const autoToggle = document.getElementById('auto-toggle');
       const pickoff = document.getElementById('pickoff');
       const steal = document.getElementById('steal-base');
       const baserunning = document.getElementById('baserunning-mode');
-      if (normalPitch && magicPitch && autoSim) {
+      if (normalPitch && magicPitch) {
         const offense = game.currentHalf === 'bottom';
         normalPitch.textContent = offense ? '進攻打席' : '守備投球';
         magicPitch.textContent = offense ? '強攻揮擊' : '燃燒生命';
-        autoSim.textContent = offense ? '模擬進攻' : '模擬守備';
+        if (autoSim) autoSim.textContent = offense ? '模擬進攻' : '模擬守備';
+        if (autoToggle) autoToggle.textContent = game.autoSimEnabled ? '停止全場自動' : '全場自動';
         if (pickoff) {
           pickoff.textContent = `牽制 ${game.pickoffAttemptsThisHalf || 0}/2`;
           pickoff.disabled = offense || !game.getCurrentRunners().some(Boolean) || game.pickoffAttemptsThisHalf >= 2;
@@ -571,7 +600,7 @@
         const player = game.roster.players[playerIndex];
         const assigned = game.getAssignedPosition(playerIndex) || 'DH';
         const selected = orderIndex === pregameSelectedLineupSlot ? ' active' : '';
-        return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
+        return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex}, ${playerIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
       }).join('')}</div><p class="pregame-note">提示：拖拽棒次列調整打序。</p>`;
 
       coaches.innerHTML = `
@@ -582,17 +611,29 @@
         <p class="pregame-note">熱度會在賽後轉成球探點數，主場氣氛越高，結算收益越好。</p>
       `;
 
-      defense.innerHTML = `<div class="defense-grid">${game.defensiveSlots.map(slot => {
+      const fieldClass = { C: 'catcher', '1B': 'first', '2B': 'second', '3B': 'third', SS: 'short', LF: 'left', CF: 'center', RF: 'right', DH: 'dh' };
+      const renderFieldSlot = (slot) => {
         const playerIndex = game.defensiveAssignments[slot];
         const player = game.roster.players[playerIndex];
         const penalty = player ? player.getPositionPenalty(slot) : 0;
-        return `<div class="defense-slot" draggable="${player ? 'true' : 'false'}" data-slot="${slot}" ondragstart="dragDefenseSlot(event, '${slot}')" ondragover="event.preventDefault()" ondrop="dropDefenseSlot(event, '${slot}')" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${POSITION_LABELS[slot] || slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `守位懲罰 -${penalty}` : '適性 OK'}</small></div>`;
-      }).join('')}</div><p class="pregame-note">提示：拖拽兩個守位互換球員，或點擊單一守位循環換位置。</p>`;
+        return `<button class="field-position pos-${fieldClass[slot] || slot.toLowerCase()}" type="button" draggable="${player ? 'true' : 'false'}" data-slot="${slot}" ondragstart="dragDefenseSlot(event, '${slot}')" ondragover="event.preventDefault()" ondrop="dropDefenseSlot(event, '${slot}')" ${player ? `onclick="cyclePregameDefense(${playerIndex})"` : ''}><span>${POSITION_LABELS[slot] || slot}</span><strong>${player ? player.name : '未定'}</strong><small>${penalty ? `-${penalty}` : 'OK'}</small></button>`;
+      };
+      defense.innerHTML = `
+        <div class="pregame-field-board">
+          <div class="field-pixel-map" aria-label="守備位置圖">
+            <div class="field-outfield"></div>
+            <div class="field-infield"></div>
+            <div class="field-home-plate"></div>
+            ${game.defensiveSlots.filter(slot => slot !== 'DH').map(renderFieldSlot).join('')}
+          </div>
+          <div class="field-dh-panel">${renderFieldSlot('DH')}</div>
+        </div>
+        <p class="pregame-note">拖曳棒次球員或板凳球員到球場位置；拖曳兩個守位可互換。</p>`;
 
       bench.innerHTML = `
         <h4>板凳｜點選後換入第 ${pregameSelectedLineupSlot + 1} 棒</h4>
         <div class="pregame-button-list">
-          ${benchPlayers.map(({ player, index }) => `<button class="pregame-row bench-row" type="button" onclick="swapPregameLineup(${index})"><span>${player.name}</span><small>${player.getPositionLabel()}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small></button>`).join('') || '<p class="pregame-note">目前沒有可用板凳野手。</p>'}
+          ${benchPlayers.map(({ player, index }) => `<button class="pregame-row bench-row" type="button" draggable="true" ondragstart="dragPlayerToDefense(event, ${index})" onclick="swapPregameLineup(${index})"><span>${player.name}</span><small>${player.getPositionLabel()}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small></button>`).join('') || '<p class="pregame-note">目前沒有可用板凳野手。</p>'}
         </div>
       `;
     }
@@ -607,9 +648,10 @@
       renderPregameScene();
     }
 
-    function dragPregameLineup(event, slot) {
+    function dragPregameLineup(event, slot, playerIndex) {
       pregameDragSlot = slot;
       event.dataTransfer?.setData('text/plain', String(slot));
+      event.dataTransfer?.setData('application/x-player-index', String(playerIndex));
     }
 
     function dropPregameLineup(event, slot) {
@@ -635,11 +677,37 @@
     let pregameDragDefenseSlot = null;
     function dragDefenseSlot(event, slot) {
       pregameDragDefenseSlot = slot;
+      const playerIndex = game.defensiveAssignments?.[slot];
       event.dataTransfer?.setData('text/plain', `slot:${slot}`);
+      if (Number.isInteger(playerIndex)) {
+        event.dataTransfer?.setData('application/x-player-index', String(playerIndex));
+      }
+    }
+    function dragPlayerToDefense(event, playerIndex) {
+      event.dataTransfer?.setData('text/plain', `player:${playerIndex}`);
+      event.dataTransfer?.setData('application/x-player-index', String(playerIndex));
+    }
+    function placePlayerOnDefense(playerIndex, targetSlot) {
+      if (!Number.isInteger(playerIndex)) return false;
+      if (!game.playerBattingOrder.includes(playerIndex)) {
+        const occupant = game.defensiveAssignments?.[targetSlot];
+        const targetOrderSlot = game.playerBattingOrder.indexOf(occupant);
+        const replaceSlot = targetOrderSlot >= 0 ? targetOrderSlot : pregameSelectedLineupSlot;
+        game.replaceLineupSlot(replaceSlot, playerIndex);
+      }
+      return game.assignDefenseSlot(targetSlot, playerIndex);
     }
     function dropDefenseSlot(event, targetSlot) {
       event.preventDefault();
       const raw = event.dataTransfer?.getData('text/plain') || '';
+      const playerRaw = event.dataTransfer?.getData('application/x-player-index') || (raw.startsWith('player:') ? raw.slice(7) : '');
+      const playerIndex = Number(playerRaw);
+      if (playerRaw !== '' && Number.isInteger(playerIndex) && placePlayerOnDefense(playerIndex, targetSlot)) {
+        pregameDragDefenseSlot = null;
+        game.updateUI();
+        renderPregameScene();
+        return;
+      }
       const fromSlot = pregameDragDefenseSlot || (raw.startsWith('slot:') ? raw.slice(5) : null);
       pregameDragDefenseSlot = null;
       if (!fromSlot || fromSlot === targetSlot) return;
