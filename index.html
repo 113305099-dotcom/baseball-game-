@@ -3,26 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CPBL 第七隊擴張模擬</title>
+  <title>政大棒球征服世界</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DotGothic16&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.17">
+  <link rel="stylesheet" href="style.css?v=1.18">
 </head>
 <body>
   <div class="container">
     <div class="app-shell">
       <header class="hud-bar">
         <button class="brand-lockup" type="button" data-scene="lobby" aria-label="返回大廳">
-          <span class="brand-mark">7</span>
+          <span class="brand-mark">政</span>
           <span>
-            <strong>CPBL EXPANSION</strong>
-            <small>第七隊 GM 模擬</small>
+            <strong>政大棒球征服世界</strong>
+            <small>NCCU Baseball GM</small>
           </span>
         </button>
         <div class="hud-stats" aria-label="球隊狀態">
           <div class="hud-chip">
-            <span>SP</span>
+            <span>資金</span>
             <strong id="currency">0</strong>
           </div>
           <div class="hud-chip">
@@ -35,7 +35,7 @@
           </div>
           <div class="hud-chip">
             <span>賽程</span>
-            <strong><span id="upcoming-match">1</span>/<span id="season-length">30</span></strong>
+            <strong><span id="upcoming-match">1</span>/<span id="season-length">40</span></strong>
           </div>
           <div class="hud-chip hud-chip-wide">
             <span>對手</span>
@@ -49,8 +49,8 @@
           <div class="lobby-grid">
             <div class="lobby-copy">
               <p class="eyebrow">Stadium Night Broadcast</p>
-              <h1 id="lobby-title">第七隊擴張計畫</h1>
-              <p class="lobby-subtitle">用球探點數、戰術卡與防護中心經營一支假想新軍，挑戰三十場賽季。</p>
+              <h1 id="lobby-title">政大棒球征服世界</h1>
+              <p class="lobby-subtitle">經營政大棒球隊，用資金、教練卡池與球員等級系統，挑戰一季 40 場的 CPBL 戰場。</p>
               <div class="lobby-actions" aria-label="主要場景">
                 <button class="lobby-action primary" type="button" data-scene="pregame">
                   <span class="action-code">PLAY</span>
@@ -114,6 +114,10 @@
             </div>
           </div>
           <div class="pregame-grid">
+            <section class="side-panel pregame-stadium-panel">
+              <h3>本場球場</h3>
+              <div id="pregame-stadium-info"></div>
+            </section>
             <section class="side-panel">
               <h3>對方先發與打線</h3>
               <div id="pregame-opponent"></div>
@@ -131,6 +135,13 @@
               <div id="pregame-coaches"></div>
               <div id="pregame-defense"></div>
               <div id="pregame-bench"></div>
+            </section>
+            <section class="side-panel pregame-coaches-panel">
+              <h3>教練卡池（v1.18）</h3>
+              <p class="pregame-note">用資金抽教練卡（300 資金/抽）、聘為總教練/投手教練/打擊教練/守備教練/體能教練/跑壘教練，影響球員 XP 成長率。</p>
+              <div id="pregame-staff-actions" class="staff-actions"></div>
+              <div id="pregame-staff-list" class="staff-list"></div>
+              <div id="pregame-hired-coaches" class="hired-coaches"></div>
             </section>
           </div>
         </section>
@@ -176,7 +187,7 @@
               </div>
               <div class="score-row">
                 <div>
-                  <span>第七隊</span>
+                  <span>政大棒球</span>
                   <strong id="score-player">0</strong>
                 </div>
                 <div>
@@ -185,16 +196,16 @@
                 </div>
               </div>
               <div class="strategy-grid" aria-label="打席戰術">
-                <div class="strategy-group">
-                  <span>進攻策略</span>
+                <div class="strategy-group" id="strategy-group-offense">
+                  <span>進攻策略（我方打擊時）</span>
                   <div class="strategy-buttons">
                     <button type="button" data-offense-plan="patient">等球</button>
                     <button type="button" data-offense-plan="normal">普通</button>
                     <button type="button" data-offense-plan="aggressive">積極</button>
                   </div>
                 </div>
-                <div class="strategy-group">
-                  <span>投球策略</span>
+                <div class="strategy-group" id="strategy-group-defense">
+                  <span>投球策略（我方守備時）</span>
                   <div class="strategy-buttons">
                     <button type="button" data-pitch-plan="fastball">速球</button>
                     <button type="button" data-pitch-plan="balanced">混合</button>
@@ -225,7 +236,7 @@
               <div class="live-panel">
                 <div>
                   <span>攻守</span>
-                  <strong id="matchup-text">第七隊守備</strong>
+                  <strong id="matchup-text">政大棒球守備</strong>
                 </div>
                 <div>
                   <span>投手</span>
@@ -239,7 +250,12 @@
                   <span>球場熱度</span>
                   <strong><span id="crowd-energy">50</span>%</strong>
                 </div>
+                <div>
+                  <span>用球速</span>
+                  <strong id="last-pitch-speed">-</strong>
+                </div>
               </div>
+              <div id="stadium-info" class="stadium-info-bar"></div>
               <div class="season-event-bar">
                 <span>賽季事件</span>
                 <strong id="season-event">尚無事件</strong>
@@ -257,19 +273,23 @@
             </section>
 
             <aside class="match-side" aria-label="對手資訊">
-              <div class="side-panel">
-                <h3>我方打序</h3>
+              <div class="match-tab-bar" role="tablist" aria-label="比賽資訊分頁">
+                <button id="match-tab-offense" class="match-tab-btn active" type="button" role="tab" data-match-tab="offense">進攻</button>
+                <button id="match-tab-defense" class="match-tab-btn" type="button" role="tab" data-match-tab="defense">守備</button>
+              </div>
+              <div class="side-panel match-tab-content" data-match-pane="offense">
+                <h3>我方打序（當前 + 後兩棒）</h3>
                 <div id="player-lineup"></div>
               </div>
-              <div class="side-panel">
-                <h3>對手打序</h3>
-                <div id="opponent-lineup"></div>
-              </div>
-              <div class="side-panel">
+              <div class="side-panel match-tab-content" data-match-pane="offense">
                 <h3>下一輪打者</h3>
                 <div id="upcoming-batters"></div>
               </div>
-              <div class="side-panel">
+              <div class="side-panel match-tab-content" data-match-pane="defense" hidden>
+                <h3>對手打序（當前 + 後兩棒）</h3>
+                <div id="opponent-lineup"></div>
+              </div>
+              <div class="side-panel match-tab-content" data-match-pane="defense" hidden>
                 <h3>牛棚</h3>
                 <div id="bullpen"></div>
               </div>
@@ -462,9 +482,32 @@
         game.setPitchPlan(pitchPlan.dataset.pitchPlan);
         return;
       }
+      // v1.18 #18：比賽頁進攻/守備分頁切換
+      const matchTab = event.target.closest('[data-match-tab]');
+      if (matchTab) {
+        setMatchTab(matchTab.dataset.matchTab);
+        return;
+      }
       const trigger = event.target.closest('[data-scene]');
       if (trigger) changeScene(trigger.dataset.scene);
     });
+
+    // v1.18 #18：比賽頁分頁切換邏輯
+    function setMatchTab(tab) {
+      document.querySelectorAll('.match-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.matchTab === tab);
+      });
+      document.querySelectorAll('[data-match-pane]').forEach(pane => {
+        const show = pane.dataset.matchPane === tab;
+        pane.hidden = !show;
+      });
+    }
+    // 比賽時自動依攻守切換分頁
+    function autoSwitchMatchTab() {
+      if (currentScene !== 'match') return;
+      const isOffensive = game.currentHalf === 'bottom';
+      setMatchTab(isOffensive ? 'offense' : 'defense');
+    }
 
     const originalAddCommentary = game.addCommentary.bind(game);
     game.addCommentary = function(outcomeKey, player, cardActive) {
@@ -540,6 +583,41 @@
         button.classList.toggle('active', button.dataset.pitchPlan === game.pitchPlan);
       });
 
+      // v1.18 #18 #1：依攻守狀態高亮對應策略區塊，關閉另一個
+      const offenseGroup = document.getElementById('strategy-group-offense');
+      const defenseGroup = document.getElementById('strategy-group-defense');
+      const isOffensive = game.currentHalf === 'bottom';
+      if (offenseGroup) {
+        offenseGroup.classList.toggle('strategy-active', isOffensive);
+        offenseGroup.classList.toggle('strategy-inactive', !isOffensive);
+        offenseGroup.querySelectorAll('button').forEach(btn => btn.disabled = !isOffensive);
+      }
+      if (defenseGroup) {
+        defenseGroup.classList.toggle('strategy-active', !isOffensive);
+        defenseGroup.classList.toggle('strategy-inactive', isOffensive);
+        defenseGroup.querySelectorAll('button').forEach(btn => btn.disabled = isOffensive);
+      }
+
+      // v1.18 #10：球場資訊顯示（比賽頁）
+      const stadiumPanel = document.getElementById('stadium-info');
+      if (stadiumPanel && window.STADIUMS_DATA && game.currentStadiumId) {
+        const s = window.STADIUMS_DATA[game.currentStadiumId];
+        if (s) {
+          stadiumPanel.innerHTML = `🏟 <strong>${s.name}</strong>　LF ${s.LF}m / CF ${s.CF}m / RF ${s.RF}m　HR係數 ${s.hrFactor}　${s.notes ? '<small>' + s.notes + '</small>' : ''}`;
+        }
+      }
+
+      // v1.18 #18：投手用球速顯示（含球種）
+      const lastPitchSpeedEl = document.getElementById('last-pitch-speed');
+      if (lastPitchSpeedEl) {
+        const speed = game.lastPitchSpeed;
+        const type = game.lastPitchType;
+        lastPitchSpeedEl.textContent = speed ? `${type || ''} ${speed} km/h` : '-';
+      }
+
+      // v1.18 #18：自動切換進攻/守備分頁
+      if (currentScene === 'match') autoSwitchMatchTab();
+
       if (currentScene === 'medical') renderMedicalScene();
     }
 
@@ -571,6 +649,31 @@
       const defense = document.getElementById('pregame-defense');
       const bench = document.getElementById('pregame-bench');
       if (!opponent || !rotation || !lineup || !coaches || !defense || !bench) return;
+
+      // v1.18 #10：本場球場資訊
+      const stadiumInfoEl = document.getElementById('pregame-stadium-info');
+      if (stadiumInfoEl && window.STADIUMS_DATA && game.currentStadiumId) {
+        const s = window.STADIUMS_DATA[game.currentStadiumId];
+        if (s) {
+          const isHome = game.currentStadiumId === (window.HOME_STADIUM_ID || 'nccu');
+          stadiumInfoEl.innerHTML = `
+            <div class="stadium-card ${isHome ? 'home-stadium' : ''}">
+              <h4>🏟 ${s.name}${isHome ? '<small>（主場）</small>' : ''}</h4>
+              <div class="stadium-stats">
+                <span>左外野 <strong>${s.LF}m</strong></span>
+                <span>中外野 <strong>${s.CF}m</strong></span>
+                <span>右外野 <strong>${s.RF}m</strong></span>
+                <span>容納 <strong>${(s.capacity || 0).toLocaleString()}</strong></span>
+                <span>HR 係數 <strong>${s.hrFactor}</strong></span>
+              </div>
+              ${s.notes ? `<p class="stadium-note">${s.notes}</p>` : ''}
+            </div>
+          `;
+        }
+      }
+
+      // v1.18 #16：教練卡池介面
+      renderStaffPanel();
 
       const abilityText = (player) => player.canPitch() && player.role === 'P'
         ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 球威 ${player.abilities.stuff}`
@@ -637,6 +740,111 @@
         </div>
       `;
     }
+
+    // v1.18 #16：教練卡池 UI 渲染
+    const STAFF_ROLE_LABELS = {
+      head: '總教練', pitching: '投手教練', batting: '打擊教練',
+      defense: '守備教練', conditioning: '體能教練', baserunning: '跑壘教練'
+    };
+    const STAFF_ROLE_BENEFITS = {
+      head: '全隊 XP +5–10%，戰術成功率提升',
+      pitching: '投手控球/球速/球威成長 +20–30%',
+      batting: '打者巧打/長打/選球成長 +20–30%',
+      defense: '守備能力成長 +25%、失誤率 -10%',
+      conditioning: '體力上限 +、傷病風險 -15–25%',
+      baserunning: '盜壘成功率 +、跑壘 IQ +'
+    };
+    const RARITY_COLOR = { SSR: '#FFC700', SR: '#A78BFA', R: '#60A5FA' };
+
+    function renderStaffPanel() {
+      const actionEl = document.getElementById('pregame-staff-actions');
+      const listEl = document.getElementById('pregame-staff-list');
+      const hiredEl = document.getElementById('pregame-hired-coaches');
+      if (!actionEl || !listEl || !hiredEl) return;
+
+      const drawCost = 300;
+      actionEl.innerHTML = `
+        <button class="control-button primary" type="button" onclick="drawCoachUI()" ${game.currency < drawCost ? 'disabled' : ''}>
+          抽取教練 ${drawCost} 資金
+        </button>
+        <span class="pregame-note">當前資金：<strong>${game.currency}</strong>　已聘僱教練：<strong>${(game.hiredCoaches || []).length}</strong></span>
+      `;
+
+      const hired = game.hiredCoaches || [];
+      if (!hired.length) {
+        listEl.innerHTML = '<p class="pregame-note">尚未抽到任何教練。點上方按鈕來抽卡。</p>';
+      } else {
+        listEl.innerHTML = `<h4>已抽到的教練</h4><div class="staff-card-grid">${
+          hired.map(c => {
+            const r = c.rarity || 'R';
+            const xpb = c.xpBonus ? Math.round((c.xpBonus - 1) * 100) : 0;
+            return `
+              <article class="staff-card" style="border-color:${RARITY_COLOR[r] || '#60A5FA'}">
+                <header>
+                  <span class="staff-rarity" style="background:${RARITY_COLOR[r] || '#60A5FA'}">${r}</span>
+                  <h5>${c.name}</h5>
+                  <small>${c.role || '通用'}　XP +${xpb}%</small>
+                </header>
+                <p class="staff-desc">${c.desc || ''}</p>
+                <div class="staff-actions-row">
+                  ${Object.keys(STAFF_ROLE_LABELS).map(role => {
+                    const isAssigned = game.coachingStaff?.[role]?.id === c.id;
+                    return `<button class="card-btn ${isAssigned ? 'active' : ''}" type="button" onclick="hireCoachUI('${c.id}','${role}')">${isAssigned ? '✓' : '指派為'}${STAFF_ROLE_LABELS[role]}</button>`;
+                  }).join('')}
+                </div>
+              </article>
+            `;
+          }).join('')
+        }</div>`;
+      }
+
+      // 顯示當前各位置的教練
+      const staff = game.coachingStaff || {};
+      hiredEl.innerHTML = `<h4>當前教練團</h4><div class="hired-grid">${
+        Object.keys(STAFF_ROLE_LABELS).map(role => {
+          const c = staff[role];
+          return `
+            <div class="hired-slot">
+              <span class="hired-role">${STAFF_ROLE_LABELS[role]}</span>
+              <strong>${c ? c.name : '無'}</strong>
+              <small>${STAFF_ROLE_BENEFITS[role]}</small>
+              ${c ? `<button type="button" class="card-btn" onclick="dismissCoachUI('${role}')">解任</button>` : ''}
+            </div>
+          `;
+        }).join('')
+      }</div>`;
+    }
+
+    function drawCoachUI() {
+      const r = game.drawCoach();
+      if (r && r.success) {
+        game.saveManager.save(game);
+        game.updateUI();
+      } else if (r && r.message) {
+        alert(r.message);
+      }
+      renderPregameScene();
+    }
+    function hireCoachUI(coachId, role) {
+      const r = game.hireCoach(coachId, role);
+      if (r && r.success) {
+        game.saveManager.save(game);
+        game.updateUI();
+      } else if (r && r.message) {
+        alert(r.message);
+      }
+      renderPregameScene();
+    }
+    function dismissCoachUI(role) {
+      if (game.coachingStaff && game.coachingStaff[role]) {
+        game.coachingStaff[role] = null;
+        game.saveManager.save(game);
+        renderPregameScene();
+      }
+    }
+    window.drawCoachUI = drawCoachUI;
+    window.hireCoachUI = hireCoachUI;
+    window.dismissCoachUI = dismissCoachUI;
 
     function selectPregamePitcher(index) {
       game.selectStartingPitcher(index);
@@ -803,6 +1011,17 @@
       const pitches = player.pitchTypes?.length
         ? player.pitchTypes.map(pitch => `<div class="pitch-chip"><strong>${pitch.name}</strong><span>速 ${pitch.speed}</span><span>變 ${pitch.movement}</span><span>控 ${pitch.control}</span><span>威 ${pitch.stuff}</span></div>`).join('')
         : '<p class="pregame-note">非投手，沒有球種資料。</p>';
+      // v1.18 #17：bio
+      const bio = (window.PLAYER_BIOS && window.PLAYER_BIOS[player.name]) || '';
+      // v1.18 #2：等級與 XP
+      const lv = player.playerLevel || 1;
+      const xp = player.playerXP || 0;
+      const xpNext = Math.round(100 * Math.pow(lv, 1.5));
+      const xpPct = Math.max(0, Math.min(100, Math.round((xp / Math.max(1, xpNext)) * 100)));
+      // v1.18 #14：擅長守位
+      const sourceStats = player.sourceStats || {};
+      const preferred = sourceStats.preferredPositions || (player.role === 'P' ? ['P'] : [player.position]);
+      const preferredText = preferred.map(p => POSITION_LABELS?.[p] || p).join('、');
       content.innerHTML = `
         <div class="detail-header">
           ${createPixelPortrait(player, 88)}
@@ -813,14 +1032,22 @@
           </div>
           <span class="rank-tag badge-${rank.toLowerCase()}">${rank}</span>
         </div>
+        ${bio ? `<p class="player-bio">📖 ${bio}</p>` : ''}
         <div class="detail-meta">
           <span>${player.getRoleLabel()}</span>
           <span>${player.getPositionLabel()}</span>
           <span>${player.level === 'minor' ? '二軍' : '一軍'}</span>
           <span>調子 ${getConditionLabel(player.condition)}</span>
           <span>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}</span>
-          <span>XP ${player.xp}</span>
           <span>潛力 ${player.growthPotential}</span>
+        </div>
+        <div class="player-level-row">
+          <strong>球員等級 Lv.${lv}</strong>
+          <span>XP ${xp}/${xpNext}</span>
+          <div class="meter safe"><span style="width:${xpPct}%"></span></div>
+        </div>
+        <div class="detail-meta">
+          <span>擅長守位：${preferredText}</span>
         </div>
         <div class="detail-traits">${traits}</div>
         <div class="detail-grid">${abilityGrid(player)}</div>
@@ -834,6 +1061,7 @@
           <button type="button" onclick="trainPlayerFromDetail(${index}, 'pitching')">投手 80</button>
           <button type="button" onclick="trainPlayerFromDetail(${index}, 'stamina')">體能 65</button>
         </div>
+        <p class="pregame-note">提示：訓練不再直接加屬性，而是給予 XP 點數讓球員升級成長（v1.18）。</p>
         <p id="player-detail-message" class="pregame-note"></p>
       `;
     }

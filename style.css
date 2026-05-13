@@ -3250,3 +3250,363 @@ body {
     font-size: 8px;
   }
 }
+
+/* =====================================================================
+   v1.18 新增樣式：球場資訊 / 教練卡池 / 比賽分頁 / 球員 bio / 等級 / 用球速
+   ===================================================================== */
+
+/* v1.18 #10：球場資訊條（比賽頁） */
+.stadium-info-bar {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, rgba(40, 100, 60, 0.25), rgba(20, 60, 30, 0.15));
+  border: 1px solid rgba(120, 200, 140, 0.4);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #d4eed4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+.stadium-info-bar strong {
+  color: #ffd86b;
+  font-weight: 700;
+}
+.stadium-info-bar small {
+  font-size: 10px;
+  color: #a4c2a4;
+  font-style: italic;
+}
+
+/* v1.18 #10：球場資訊卡（賽前頁） */
+.pregame-stadium-panel {
+  background: linear-gradient(135deg, rgba(28, 70, 40, 0.32), rgba(15, 30, 20, 0.4));
+  border-color: rgba(120, 200, 140, 0.5);
+}
+.stadium-card {
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  border: 1px solid rgba(140, 220, 160, 0.3);
+}
+.stadium-card.home-stadium {
+  border-color: #ffd86b;
+  background: linear-gradient(135deg, rgba(255, 215, 100, 0.18), rgba(40, 90, 50, 0.3));
+  box-shadow: 0 0 12px rgba(255, 215, 100, 0.25);
+}
+.stadium-card h4 {
+  margin: 0 0 8px 0;
+  color: #ffe18a;
+  font-size: 16px;
+}
+.stadium-card h4 small {
+  color: #ffd86b;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.stadium-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  gap: 6px;
+  font-size: 12px;
+  color: #cfe6cf;
+}
+.stadium-stats span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+.stadium-stats strong {
+  color: #ffd86b;
+  font-size: 13px;
+  margin-top: 2px;
+}
+.stadium-note {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #b5c8b5;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* v1.18 #16：教練卡池面板 */
+.pregame-coaches-panel {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(60, 40, 90, 0.32), rgba(20, 15, 35, 0.4));
+  border-color: rgba(180, 140, 240, 0.4);
+}
+.staff-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 8px 0 14px;
+  flex-wrap: wrap;
+}
+.staff-actions .pregame-note strong {
+  color: #ffd86b;
+}
+.staff-list,
+.staff-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.staff-card {
+  padding: 10px;
+  border: 2px solid #60a5fa;
+  border-radius: 8px;
+  background: rgba(20, 20, 35, 0.7);
+  position: relative;
+}
+.staff-card header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.staff-rarity {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.staff-card h5 {
+  margin: 0;
+  font-size: 14px;
+  color: #ffd86b;
+}
+.staff-card header small {
+  font-size: 10px;
+  color: #aab4d0;
+  width: 100%;
+}
+.staff-desc {
+  font-size: 11px;
+  color: #c5cfee;
+  margin: 4px 0;
+  line-height: 1.4;
+  min-height: 32px;
+}
+.staff-actions-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-top: 6px;
+}
+.staff-actions-row .card-btn {
+  font-size: 10px;
+  padding: 4px 6px;
+  background: rgba(60, 60, 100, 0.5);
+  color: #d8e0f0;
+  border: 1px solid rgba(120, 140, 200, 0.4);
+}
+.staff-actions-row .card-btn.active {
+  background: linear-gradient(135deg, #ffd86b, #ff9b3b);
+  color: #1a1a2e;
+  border-color: #ffd86b;
+}
+.hired-coaches h4 {
+  margin: 12px 0 8px;
+}
+.hired-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+.hired-slot {
+  padding: 8px;
+  background: rgba(15, 15, 30, 0.6);
+  border: 1px solid rgba(100, 100, 160, 0.4);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hired-role {
+  font-size: 10px;
+  color: #aab4d0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.hired-slot strong {
+  font-size: 13px;
+  color: #ffd86b;
+}
+.hired-slot small {
+  font-size: 10px;
+  color: #99a4c4;
+  line-height: 1.35;
+}
+.hired-slot .card-btn {
+  margin-top: 4px;
+  font-size: 10px;
+  padding: 3px 6px;
+  background: rgba(120, 60, 60, 0.5);
+  border: 1px solid rgba(180, 100, 100, 0.5);
+  color: #ffd6d6;
+}
+
+/* v1.18 #18：比賽頁進攻/守備分頁 */
+.match-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.match-tab-btn {
+  flex: 1;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(30, 30, 50, 0.55);
+  color: #aab4d0;
+  border: 1px solid rgba(120, 140, 200, 0.35);
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.match-tab-btn:hover {
+  background: rgba(60, 60, 90, 0.6);
+  color: #fff;
+}
+.match-tab-btn.active {
+  background: linear-gradient(180deg, #ffd86b, #ff9b3b);
+  color: #1a1a2e;
+  border-color: #ffd86b;
+  box-shadow: 0 -2px 8px rgba(255, 215, 100, 0.4);
+}
+.lineup-current {
+  background: linear-gradient(90deg, rgba(255, 215, 100, 0.22), transparent);
+  padding: 4px 8px;
+  border-left: 3px solid #ffd86b;
+  border-radius: 0 4px 4px 0;
+  margin: 2px 0;
+}
+.lineup-upcoming {
+  padding: 4px 8px;
+  margin: 2px 0;
+  opacity: 0.78;
+}
+.lineup-tag {
+  display: inline-block;
+  min-width: 50px;
+  font-size: 10px;
+  padding: 1px 6px;
+  margin-right: 4px;
+  background: rgba(100, 120, 180, 0.35);
+  border-radius: 3px;
+  color: #c8d0e8;
+}
+.lineup-current .lineup-tag {
+  background: rgba(255, 215, 100, 0.4);
+  color: #1a1a2e;
+  font-weight: 700;
+}
+
+/* v1.18 #1 #18：進攻/守備策略區塊高亮與失活 */
+.strategy-group.strategy-active {
+  background: linear-gradient(135deg, rgba(255, 215, 100, 0.16), rgba(255, 155, 60, 0.08));
+  border-color: #ffd86b;
+  box-shadow: 0 0 10px rgba(255, 215, 100, 0.18);
+}
+.strategy-group.strategy-inactive {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+.strategy-group.strategy-inactive button {
+  cursor: not-allowed;
+}
+
+/* v1.18 #17：球員一句話介紹 */
+.player-bio {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, rgba(120, 90, 50, 0.25), rgba(80, 60, 35, 0.12));
+  border-left: 3px solid #ffd86b;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  color: #f0e5cf;
+  line-height: 1.5;
+  font-style: italic;
+}
+.roster-card-bio {
+  margin: 4px 0;
+  padding: 4px 6px;
+  background: rgba(60, 50, 30, 0.4);
+  border-left: 2px solid #ffd86b;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #e0d4b8;
+  font-style: italic;
+  min-height: 28px;
+}
+
+/* v1.18 #2：球員等級進度條 */
+.player-level-row {
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+}
+.player-level-row strong {
+  color: #ffd86b;
+  font-size: 14px;
+}
+.player-level-row span {
+  font-size: 11px;
+  color: #aab4d0;
+  text-align: right;
+}
+.player-level-row .meter {
+  grid-column: 1 / -1;
+  height: 6px;
+}
+
+/* v1.18：用球速顯示強調 */
+#last-pitch-speed {
+  color: #ffd86b;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* v1.18 #16：教練卡稀有度光暈 */
+.staff-card[style*="#FFC700"] {
+  box-shadow: 0 0 14px rgba(255, 199, 0, 0.35);
+}
+.staff-card[style*="#A78BFA"] {
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.25);
+}
+
+/* v1.18：roster bio 卡片 + 移除守位後微調 */
+.roster-card .defense-select {
+  display: none !important;
+}
+
+/* v1.18：響應式 */
+@media (max-width: 720px) {
+  .staff-list,
+  .staff-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .stadium-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hired-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .match-tab-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
