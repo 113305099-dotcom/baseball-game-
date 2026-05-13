@@ -12,7 +12,7 @@
 
 // ---------- v1.18：球場資料 ----------
 const STADIUMS_DATA = {
-  'nccu':       { name: '政大河堤棒球場',  team: '政治大學棒球隊',     LF: 76,  CF: 100, RF: 76,  fenceHeight: 2.0, surface: '紅土+草皮', altitude: 8,   hrFactor: 1.15, windHelp: 0.5,  notes: '社區型練習場，外野偏短，是打者天堂。' },
+  'nccu':       { name: '政大河堤棒球場',  team: '政治大學棒球隊',     LF: 76,  CF: 100, RF: 76,  fenceHeight: 10.0, surface: '紅土+草皮', altitude: 8,   hrFactor: 0.55, windHelp: 0.3,  notes: 'v2.11 啟用「天網」外野防護網（高 10 m），避免球打到划船上學的同學。距離雖短但天網難以越過，全壘打數量明顯下降。' },
   'chengcing':  { name: '澄清湖棒球場',    team: '台鋼雄鷹',           LF: 100, CF: 122, RF: 100, fenceHeight: 3.0, surface: '天然草皮', altitude: 10,  hrFactor: 0.98, windHelp: 0.7,  notes: '中性球場，夏季南風助攻右外野。' },
   'tianmu':     { name: '天母棒球場',      team: '味全龍',             LF: 99,  CF: 120, RF: 99,  fenceHeight: 2.8, surface: '人工草皮', altitude: 25,  hrFactor: 1.05, windHelp: 0.6,  notes: '台北市區小巧球場，打者天堂，22:00 夜禁。' },
   'taoyuan':    { name: '樂天桃園棒球場',  team: '樂天桃猿',           LF: 100, CF: 122, RF: 100, fenceHeight: 3.0, surface: '天然草皮', altitude: 60,  hrFactor: 1.02, windHelp: 0.6,  notes: '朝向設計錯誤導致下午西曬，夜間賽事為主。' },
@@ -298,6 +298,239 @@ const INITIAL_ROSTER_SPEC = {
 };
 
 
+// ============================================================
+// v2.11：WBC 世界棒球經典賽資料
+// ============================================================
+
+// WBC 八強隊伍（除了中華隊由玩家政大棒球擔任，其餘 7 國固定陣容）
+// 數值以 2026 年度該國代表隊球星水準調校
+const WBC_NATIONAL_TEAMS = {
+  'JPN': {
+    code: 'JPN', name: '日本武士', flag: '🇯🇵', strength: 96,
+    batters: [
+      { name: '大谷翔平',   role: 'B', position: 'DH', power: 99, contact: 86, speed: 88, discipline: 84, clutch: 93 },
+      { name: '佐藤輝明',   role: 'B', position: '3B', power: 92, contact: 80, speed: 70, discipline: 78, clutch: 82 },
+      { name: '岡本和真',   role: 'B', position: '1B', power: 90, contact: 82, speed: 60, discipline: 80, clutch: 84 },
+      { name: '村上宗隆',   role: 'B', position: '3B', power: 95, contact: 78, speed: 68, discipline: 86, clutch: 88 },
+      { name: '近藤健介',   role: 'B', position: 'RF', power: 78, contact: 92, speed: 75, discipline: 94, clutch: 86 },
+      { name: '吉田正尚',   role: 'B', position: 'LF', power: 80, contact: 90, speed: 64, discipline: 88, clutch: 87 },
+      { name: '源田壯亮',   role: 'B', position: 'SS', power: 56, contact: 80, speed: 86, discipline: 78, clutch: 80 },
+      { name: '中野拓夢',   role: 'B', position: '2B', power: 58, contact: 84, speed: 88, discipline: 75, clutch: 78 },
+      { name: '甲斐拓也',   role: 'B', position: 'C',  power: 62, contact: 74, speed: 50, discipline: 70, clutch: 76 }
+    ],
+    pitchers: [
+      { name: '山本由伸',     role: 'P', position: 'SP', velocity: 92, control: 93, breaking: 95, stamina: 88 },
+      { name: '佐佐木朗希',   role: 'P', position: 'SP', velocity: 99, control: 78, breaking: 92, stamina: 76 },
+      { name: '今永昇太',     role: 'P', position: 'SP', velocity: 88, control: 90, breaking: 90, stamina: 84 },
+      { name: '戶郷翔征',     role: 'P', position: 'SP', velocity: 90, control: 88, breaking: 92, stamina: 82 },
+      { name: '栗林良吏',     role: 'P', position: 'RP', velocity: 93, control: 86, breaking: 90, stamina: 60 }
+    ]
+  },
+  'USA': {
+    code: 'USA', name: '美國夢幻隊', flag: '🇺🇸', strength: 94,
+    batters: [
+      { name: 'Aaron Judge',         role: 'B', position: 'RF', power: 99, contact: 84, speed: 64, discipline: 92, clutch: 90 },
+      { name: 'Mookie Betts',        role: 'B', position: '2B', power: 83, contact: 88, speed: 84, discipline: 90, clutch: 87 },
+      { name: 'Bryce Harper',        role: 'B', position: '1B', power: 92, contact: 84, speed: 70, discipline: 88, clutch: 88 },
+      { name: 'Mike Trout',          role: 'B', position: 'CF', power: 92, contact: 85, speed: 80, discipline: 92, clutch: 88 },
+      { name: 'Pete Alonso',         role: 'B', position: '1B', power: 96, contact: 75, speed: 56, discipline: 82, clutch: 84 },
+      { name: 'Trea Turner',         role: 'B', position: 'SS', power: 80, contact: 88, speed: 96, discipline: 82, clutch: 88 },
+      { name: 'Nolan Arenado',       role: 'B', position: '3B', power: 86, contact: 82, speed: 62, discipline: 80, clutch: 86 },
+      { name: 'Will Smith',          role: 'B', position: 'C',  power: 80, contact: 82, speed: 56, discipline: 84, clutch: 80 },
+      { name: 'Kyle Tucker',         role: 'B', position: 'LF', power: 88, contact: 86, speed: 78, discipline: 88, clutch: 86 }
+    ],
+    pitchers: [
+      { name: 'Corbin Burnes',     role: 'P', position: 'SP', velocity: 90, control: 91, breaking: 95, stamina: 87 },
+      { name: 'Spencer Strider',   role: 'P', position: 'SP', velocity: 98, control: 84, breaking: 93, stamina: 80 },
+      { name: 'Logan Webb',        role: 'P', position: 'SP', velocity: 86, control: 92, breaking: 90, stamina: 86 },
+      { name: 'Tarik Skubal',      role: 'P', position: 'SP', velocity: 95, control: 88, breaking: 92, stamina: 84 },
+      { name: 'Devin Williams',    role: 'P', position: 'RP', velocity: 91, control: 85, breaking: 96, stamina: 60 }
+    ]
+  },
+  'KOR': {
+    code: 'KOR', name: '韓國代表隊', flag: '🇰🇷', strength: 88,
+    batters: [
+      { name: '李正厚',     role: 'B', position: 'CF', power: 70, contact: 90, speed: 85, discipline: 87, clutch: 84 },
+      { name: '金河成',     role: 'B', position: 'SS', power: 64, contact: 82, speed: 80, discipline: 80, clutch: 82 },
+      { name: '裴芝煥',     role: 'B', position: '2B', power: 56, contact: 86, speed: 85, discipline: 78, clutch: 80 },
+      { name: '姜白虎',     role: 'B', position: 'RF', power: 84, contact: 80, speed: 70, discipline: 82, clutch: 84 },
+      { name: '朴炳鎬',     role: 'B', position: '1B', power: 88, contact: 78, speed: 50, discipline: 76, clutch: 84 },
+      { name: '崔智晃',     role: 'B', position: 'LF', power: 80, contact: 82, speed: 70, discipline: 80, clutch: 82 },
+      { name: '吳智煥',     role: 'B', position: 'C',  power: 68, contact: 76, speed: 50, discipline: 72, clutch: 78 },
+      { name: '盧詩煥',     role: 'B', position: '3B', power: 78, contact: 80, speed: 65, discipline: 76, clutch: 80 },
+      { name: '安致鎬',     role: 'B', position: 'DH', power: 82, contact: 84, speed: 60, discipline: 80, clutch: 84 }
+    ],
+    pitchers: [
+      { name: '柳賢振',     role: 'P', position: 'SP', velocity: 86, control: 92, breaking: 90, stamina: 84 },
+      { name: '金廣鉉',     role: 'P', position: 'SP', velocity: 84, control: 88, breaking: 88, stamina: 84 },
+      { name: '高永表',     role: 'P', position: 'SP', velocity: 88, control: 84, breaking: 86, stamina: 80 },
+      { name: '文東柱',     role: 'P', position: 'SP', velocity: 92, control: 84, breaking: 86, stamina: 78 },
+      { name: '高于錫',     role: 'P', position: 'RP', velocity: 95, control: 80, breaking: 88, stamina: 58 }
+    ]
+  },
+  'DOM': {
+    code: 'DOM', name: '多明尼加', flag: '🇩🇴', strength: 92,
+    batters: [
+      { name: 'Juan Soto',              role: 'B', position: 'LF', power: 94, contact: 90, speed: 58, discipline: 99, clutch: 91 },
+      { name: 'Vladimir Guerrero Jr.',  role: 'B', position: '1B', power: 93, contact: 87, speed: 52, discipline: 80, clutch: 84 },
+      { name: 'Manny Machado',          role: 'B', position: '3B', power: 88, contact: 84, speed: 60, discipline: 82, clutch: 86 },
+      { name: 'Rafael Devers',          role: 'B', position: '3B', power: 92, contact: 84, speed: 60, discipline: 78, clutch: 84 },
+      { name: 'Fernando Tatis Jr.',     role: 'B', position: 'RF', power: 92, contact: 80, speed: 92, discipline: 76, clutch: 86 },
+      { name: 'Julio Rodriguez',        role: 'B', position: 'CF', power: 90, contact: 84, speed: 88, discipline: 80, clutch: 86 },
+      { name: 'Ketel Marte',            role: 'B', position: '2B', power: 80, contact: 88, speed: 70, discipline: 84, clutch: 84 },
+      { name: 'Francisco Lindor',       role: 'B', position: 'SS', power: 84, contact: 85, speed: 82, discipline: 84, clutch: 86 },
+      { name: 'Salvador Perez',         role: 'B', position: 'C',  power: 86, contact: 80, speed: 50, discipline: 70, clutch: 82 }
+    ],
+    pitchers: [
+      { name: 'Sandy Alcantara',  role: 'P', position: 'SP', velocity: 94, control: 86, breaking: 88, stamina: 86 },
+      { name: 'Cristian Javier',  role: 'P', position: 'SP', velocity: 90, control: 86, breaking: 90, stamina: 82 },
+      { name: 'Luis Castillo',    role: 'P', position: 'SP', velocity: 94, control: 84, breaking: 88, stamina: 82 },
+      { name: 'Framber Valdez',   role: 'P', position: 'SP', velocity: 88, control: 84, breaking: 90, stamina: 84 },
+      { name: 'Camilo Doval',     role: 'P', position: 'RP', velocity: 97, control: 78, breaking: 90, stamina: 58 }
+    ]
+  },
+  'VEN': {
+    code: 'VEN', name: '委內瑞拉', flag: '🇻🇪', strength: 86,
+    batters: [
+      { name: 'Ronald Acuña Jr.',  role: 'B', position: 'RF', power: 92, contact: 89, speed: 95, discipline: 82, clutch: 89 },
+      { name: 'Jose Altuve',       role: 'B', position: '2B', power: 76, contact: 90, speed: 80, discipline: 82, clutch: 90 },
+      { name: 'Miguel Cabrera',    role: 'B', position: 'DH', power: 80, contact: 86, speed: 45, discipline: 84, clutch: 90 },
+      { name: 'Salvador Perez',    role: 'B', position: 'C',  power: 86, contact: 80, speed: 50, discipline: 70, clutch: 82 },
+      { name: 'Luis Arraez',       role: 'B', position: '1B', power: 60, contact: 98, speed: 60, discipline: 92, clutch: 86 },
+      { name: 'Andres Gimenez',    role: 'B', position: '2B', power: 70, contact: 82, speed: 85, discipline: 76, clutch: 80 },
+      { name: 'Eugenio Suarez',    role: 'B', position: '3B', power: 88, contact: 72, speed: 55, discipline: 78, clutch: 82 },
+      { name: 'David Peralta',     role: 'B', position: 'LF', power: 76, contact: 80, speed: 65, discipline: 76, clutch: 78 },
+      { name: 'Jose Trevino',      role: 'B', position: 'C',  power: 60, contact: 76, speed: 55, discipline: 70, clutch: 76 }
+    ],
+    pitchers: [
+      { name: 'Pablo Lopez',      role: 'P', position: 'SP', velocity: 90, control: 88, breaking: 88, stamina: 84 },
+      { name: 'Luis Garcia',      role: 'P', position: 'SP', velocity: 88, control: 84, breaking: 88, stamina: 80 },
+      { name: 'Jesus Luzardo',    role: 'P', position: 'SP', velocity: 94, control: 80, breaking: 88, stamina: 78 },
+      { name: 'Eduardo Rodriguez',role: 'P', position: 'SP', velocity: 86, control: 86, breaking: 84, stamina: 82 },
+      { name: 'Felix Bautista',   role: 'P', position: 'RP', velocity: 98, control: 80, breaking: 90, stamina: 58 }
+    ]
+  },
+  'PUR': {
+    code: 'PUR', name: '波多黎各', flag: '🇵🇷', strength: 82,
+    batters: [
+      { name: 'Francisco Lindor',   role: 'B', position: 'SS', power: 84, contact: 85, speed: 82, discipline: 84, clutch: 86 },
+      { name: 'Javier Baez',        role: 'B', position: 'SS', power: 84, contact: 76, speed: 78, discipline: 64, clutch: 82 },
+      { name: 'Carlos Correa',      role: 'B', position: 'SS', power: 86, contact: 82, speed: 70, discipline: 82, clutch: 84 },
+      { name: 'Yadier Molina',      role: 'B', position: 'C',  power: 70, contact: 80, speed: 50, discipline: 78, clutch: 86 },
+      { name: 'Eddie Rosario',      role: 'B', position: 'LF', power: 82, contact: 78, speed: 65, discipline: 70, clutch: 80 },
+      { name: 'Enrique Hernandez',  role: 'B', position: '2B', power: 72, contact: 76, speed: 70, discipline: 74, clutch: 80 },
+      { name: 'Christian Vazquez',  role: 'B', position: 'C',  power: 68, contact: 76, speed: 58, discipline: 72, clutch: 76 },
+      { name: 'MJ Melendez',        role: 'B', position: 'C',  power: 80, contact: 74, speed: 60, discipline: 76, clutch: 76 },
+      { name: 'Kike Hernandez',     role: 'B', position: 'CF', power: 74, contact: 76, speed: 72, discipline: 76, clutch: 78 }
+    ],
+    pitchers: [
+      { name: 'Marcus Stroman',   role: 'P', position: 'SP', velocity: 86, control: 90, breaking: 86, stamina: 82 },
+      { name: 'Jose Berrios',     role: 'P', position: 'SP', velocity: 88, control: 86, breaking: 88, stamina: 84 },
+      { name: 'Carlos Hernandez', role: 'P', position: 'SP', velocity: 94, control: 78, breaking: 84, stamina: 76 },
+      { name: 'Joan Adon',        role: 'P', position: 'SP', velocity: 92, control: 76, breaking: 82, stamina: 76 },
+      { name: 'Edwin Diaz',       role: 'P', position: 'RP', velocity: 99, control: 82, breaking: 92, stamina: 58 }
+    ]
+  },
+  'MEX': {
+    code: 'MEX', name: '墨西哥', flag: '🇲🇽', strength: 84,
+    batters: [
+      { name: 'Randy Arozarena',     role: 'B', position: 'LF', power: 86, contact: 80, speed: 86, discipline: 78, clutch: 92 },
+      { name: 'Joey Meneses',        role: 'B', position: '1B', power: 80, contact: 82, speed: 50, discipline: 74, clutch: 80 },
+      { name: 'Alex Verdugo',        role: 'B', position: 'CF', power: 76, contact: 86, speed: 72, discipline: 84, clutch: 82 },
+      { name: 'Rowdy Tellez',        role: 'B', position: '1B', power: 84, contact: 74, speed: 48, discipline: 74, clutch: 78 },
+      { name: 'Isaac Paredes',       role: 'B', position: '3B', power: 82, contact: 80, speed: 55, discipline: 84, clutch: 82 },
+      { name: 'Luis Urias',          role: 'B', position: '2B', power: 70, contact: 78, speed: 70, discipline: 80, clutch: 78 },
+      { name: 'Jarren Duran',        role: 'B', position: 'CF', power: 78, contact: 80, speed: 92, discipline: 76, clutch: 78 },
+      { name: 'Austin Barnes',       role: 'B', position: 'C',  power: 60, contact: 72, speed: 55, discipline: 74, clutch: 74 },
+      { name: 'Alejandro Kirk',      role: 'B', position: 'C',  power: 76, contact: 84, speed: 40, discipline: 84, clutch: 80 }
+    ],
+    pitchers: [
+      { name: 'Julio Urias',       role: 'P', position: 'SP', velocity: 88, control: 88, breaking: 88, stamina: 82 },
+      { name: 'Patrick Sandoval',  role: 'P', position: 'SP', velocity: 86, control: 84, breaking: 86, stamina: 80 },
+      { name: 'Taijuan Walker',    role: 'P', position: 'SP', velocity: 88, control: 84, breaking: 86, stamina: 80 },
+      { name: 'Jose Urquidy',      role: 'P', position: 'SP', velocity: 88, control: 86, breaking: 84, stamina: 80 },
+      { name: 'Giovanny Gallegos', role: 'P', position: 'RP', velocity: 92, control: 86, breaking: 88, stamina: 58 }
+    ]
+  }
+};
+
+
+// WBC 資格積分制度（玩家累積 4 季 → 看誰積分最高 → 取得中華隊代表權）
+const WBC_QUALIFICATION_RULES = {
+  yearRank1Points: 7,        // 年度第一名（年度總戰績）
+  yearRank2Points: 6,        // 年度第二名
+  halfChampPoints: 3,        // 上半季或下半季冠軍
+  champPoints: 10,           // 年度總冠軍
+  runnerUpPoints: 7,         // 總冠軍亞軍
+  thirdPlacePoints: 3,       // 季後賽季軍（挑戰賽敗者）
+  totalSeasons: 4,           // 累計 2026、2027、2028、2029 共 4 季
+  startYear: 2026
+};
+
+
+// 主線劇情文本
+const STORYLINE_TEXTS = {
+  introTitle: '2030 WBC 世界經典賽，等你來戰',
+  introBody: [
+    '時間是 2026 年，政治大學棒球隊（你的球隊）獲准加入 CPBL 進行為期 4 年的擴張試辦。',
+    '4 個賽季結束後，CPBL 七隊中誰累積最多「WBC 積分」，誰就能代表中華隊出戰 2030 年的 WBC 世界棒球經典賽。',
+    '積分來自年度排名、上下半季冠軍、總冠軍賽結果。',
+    '只要連續 4 年表現穩定壓過聯盟其他隊，你就能站上 8 強舞台，與日本、美國、多明尼加、韓國、委內瑞拉、波多黎各、墨西哥同台競技。'
+  ],
+  wbcOpening: [
+    '🎌 政大棒球以 4 年累積 WBC 積分第一名取得中華隊代表權！',
+    '從台灣到全世界，你即將在 2030 年世界舞台代表中華民國國家隊出賽。',
+    '8 強單淘汰，第一場對戰將決定一切。'
+  ],
+  failureTitle: '4 年了，我們還是去不了世界舞台',
+  failureBody: [
+    '4 個 CPBL 賽季結束。',
+    '你帶領的政大棒球隊累積 WBC 積分未能在 7 隊中拔得頭籌。',
+    '中華隊代表權落入聯盟其他球隊手中，你只能在電視機前看著別人為國爭光。',
+    '但這 4 年中你看著球員從新秀變成老將、從業餘變成職業，球隊精神也已留下。'
+  ],
+  wbcChampion: [
+    '🏆 中華隊在 2030 WBC 奪冠！',
+    '你在政治大學的這 4 年訓練，造就了第一個由大學棒球隊帶領取得世界冠軍的奇蹟。',
+    '全台灣陷入棒球狂歡。'
+  ],
+  wbcDefeated: [
+    '中華隊在 8 強 {stage} 遭遇 {opp} 止步。',
+    '雖然沒能再進一步，但你帶領中華隊站上世界舞台的故事，已成為棒球迷的共同記憶。',
+    '回到政大球場，新的賽季又要開始了。'
+  ]
+};
+
+
+// CSV 資料匯入/匯出欄位定義（給「資料中心」介面用）
+const DATA_SCHEMAS = {
+  cpblBatters: {
+    label: '本土打者',
+    target: 'CPBL_BATTER_STATS_2025',
+    columns: ['name', 'team', 'position', 'preferredPositions', 'role', 'avg', 'obp', 'slg', 'ops', 'opsPlus', 'hr', 'sb', 'kRate', 'bbRate', 'errors', 'source', 'rating'],
+    notes: 'preferredPositions 以「|」分隔（例如 "C|1B|DH"）；其餘欄位請維持數字。'
+  },
+  cpblPitchers: {
+    label: '本土投手',
+    target: 'CPBL_PITCHER_STATS_2025',
+    columns: ['name', 'team', 'position', 'role', 'era', 'whip', 'fip', 'k9', 'kRate', 'bbRate', 'ip', 'starts', 'source', 'throws', 'rating'],
+    notes: 'position 用 SP 或 RP；throws 用 R 或 L。'
+  },
+  stadiums: {
+    label: '球場',
+    target: 'STADIUMS_DATA',
+    columns: ['id', 'name', 'team', 'LF', 'CF', 'RF', 'fenceHeight', 'surface', 'altitude', 'hrFactor', 'windHelp', 'notes'],
+    notes: '欲新增球場直接加一列，id 不能重複。fenceHeight 單位為公尺。'
+  },
+  coaches: {
+    label: '教練卡池',
+    target: 'COACHES_POOL',
+    columns: ['id', 'name', 'roleType', 'rarity', 'specialty', 'xpBonus', 'statBonus', 'desc'],
+    notes: 'rarity 為 SSR/SR/R；xpBonus、statBonus 用 JSON 格式 (例如 {"all":10})。'
+  }
+};
+
+
 // 暴露給 window
 if (typeof window !== 'undefined') {
   window.CPBL_BATTER_STATS_2025      = CPBL_BATTER_STATS_2025;
@@ -314,4 +547,9 @@ if (typeof window !== 'undefined') {
   window.TEAM_NICKNAME               = '政大棒球';
   window.GAME_TITLE                  = '政大棒球征服世界';
   window.HOME_STADIUM_ID             = 'nccu';
+  // v2.11 新增
+  window.WBC_NATIONAL_TEAMS          = WBC_NATIONAL_TEAMS;
+  window.WBC_QUALIFICATION_RULES     = WBC_QUALIFICATION_RULES;
+  window.STORYLINE_TEXTS             = STORYLINE_TEXTS;
+  window.DATA_SCHEMAS                = DATA_SCHEMAS;
 }

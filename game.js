@@ -227,7 +227,7 @@ class CommentaryGenerator {
   }
 }
 
-const PLAYER_DATA_VERSION = 3; // v1.14: 新增 pitcherRole / daysOfRest / 碎片 / 牛棚順序
+const PLAYER_DATA_VERSION = 4; // v2.11: 新增 currentYear / seasonHistory / wbcPoints / storylineStage
 
 function clampInt(value, min = 0, max = 99) {
   const numeric = Number.isFinite(Number(value)) ? Number(value) : min;
@@ -420,9 +420,24 @@ function getOfficialPortraitUrl(player) {
   return stats.officialImage || stats.cpblImage || CPBL_OFFICIAL_IMAGE_BY_NAME[player?.name] || '';
 }
 
-// v1.18 #1 #7：像素化處理（基於 hbl917070/pixel_table 演算法）
-// 用 Canvas drawImage 縮小 → 再放大 + imageSmoothingEnabled=false → 取得像素風頭像
-function pixelatePortraitFromImg(img, blockW = 40, outputW = 192) {
+function getLocalPixelPortraitUrl(player) {
+  const redrawnManifest = typeof window !== 'undefined' ? window.LOCAL_REDRAWN_PIXEL_PORTRAITS : null;
+  if (redrawnManifest?.[player?.name]) return redrawnManifest[player.name];
+  const manifest = typeof window !== 'undefined' ? window.LOCAL_PIXEL_PORTRAITS : null;
+  return manifest?.[player?.name] || '';
+}
+
+function isRedrawnPixelPortrait(player) {
+  const redrawnManifest = typeof window !== 'undefined' ? window.LOCAL_REDRAWN_PIXEL_PORTRAITS : null;
+  return Boolean(redrawnManifest?.[player?.name]);
+}
+
+// v2.11：CPBL 照片像素化（修正：去掉 crossorigin 確保照片能正常載入）
+// 原本因 CORS 失敗 → 所有球員看起來都一樣；現在改成：
+//   1. 不帶 crossorigin 直接載入照片（每位球員都有不同的照片）
+//   2. 嘗試用 canvas 像素化（如果失敗會 fallback 顯示原圖 + CSS 像素濾鏡）
+//   3. CSS image-rendering: pixelated + 縮放放大造成像素感
+function pixelatePortraitFromImg(img, blockW = 32, outputW = 192) {
   if (!img || !img.naturalWidth) return null;
   const ratio = img.naturalHeight / img.naturalWidth;
   const blockH = Math.max(1, Math.round(blockW * ratio));
@@ -435,6 +450,20 @@ function pixelatePortraitFromImg(img, blockW = 40, outputW = 192) {
   } catch (err) {
     return null; // CORS / 載入失敗
   }
+  // 嘗試色階量化（如果 CORS 阻擋 readback，會 throw → 回傳 null 不阻塞）
+  try {
+    const imageData = sctx.getImageData(0, 0, blockW, blockH);
+    const data = imageData.data;
+    const step = 32;
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.max(0, Math.min(255, Math.round(data[i] / step) * step));
+      data[i + 1] = Math.max(0, Math.min(255, Math.round(data[i + 1] / step) * step));
+      data[i + 2] = Math.max(0, Math.min(255, Math.round(data[i + 2] / step) * step));
+    }
+    sctx.putImageData(imageData, 0, 0);
+  } catch (err) {
+    return null;
+  }
   const big = document.createElement('canvas');
   big.width = outputW;
   big.height = Math.round(outputW * ratio);
@@ -444,16 +473,25 @@ function pixelatePortraitFromImg(img, blockW = 40, outputW = 192) {
   return big;
 }
 
-// 設定圖片載入後自動像素化
+// 設定圖片載入後嘗試像素化（如果 CORS 失敗就維持原圖 + CSS 像素濾鏡）
 function setupPixelPortraitConversion(img) {
   if (!img || img.dataset.pixelated === 'true') return;
   const apply = () => {
     if (!img.complete || img.naturalWidth === 0) return;
-    const canvas = pixelatePortraitFromImg(img, 40, 192);
-    if (canvas) {
-      img.src = canvas.toDataURL();
-      img.dataset.pixelated = 'true';
-      img.style.imageRendering = 'pixelated';
+    // v2.11：強制 CSS 像素風（即使 canvas 失敗也有效果）
+    img.style.imageRendering = 'pixelated';
+    try {
+      const canvas = pixelatePortraitFromImg(img, 32, 192);
+      if (canvas) {
+        const url = canvas.toDataURL();
+        img.src = url;
+        img.dataset.pixelated = 'true';
+      } else {
+        // CORS 失敗 → 維持原圖，但仍有 CSS pixelated
+        img.dataset.pixelated = 'css-only';
+      }
+    } catch (err) {
+      img.dataset.pixelated = 'css-only';
     }
   };
   if (img.complete && img.naturalWidth > 0) apply();
@@ -484,14 +522,25 @@ function createFallbackPixelPortrait(player, size = 64) {
 
 function createPixelPortrait(player, size = 64) {
   const fallback = createFallbackPixelPortrait(player, size);
+  const localUrl = getLocalPixelPortraitUrl(player);
+  if (localUrl) {
+    const safeName = escapeAttr(player.name);
+    const safeUrl = escapeAttr(localUrl);
+    const fallbackSvg = fallback.replace('class="pixel-portrait"', 'class="pixel-portrait portrait-fallback"');
+    const portraitClass = isRedrawnPixelPortrait(player) ? 'redrawn-pixel-portrait' : 'local-pixel-portrait';
+    const fitMode = isRedrawnPixelPortrait(player) ? 'contain' : 'cover';
+    return `<span class="pixel-portrait official-pixel-portrait local-pixel-portrait ${portraitClass}" style="width:${size}px;height:${size}px" role="img" aria-label="${safeName} 本地像素頭像"><img src="${safeUrl}" alt="${safeName}" loading="lazy" data-pixelated="true" onerror="this.parentElement.classList.add('portrait-failed')" style="image-rendering:pixelated;image-rendering:crisp-edges;width:100%;height:100%;object-fit:${fitMode}">${fallbackSvg}</span>`;
+  }
+
   const officialUrl = getOfficialPortraitUrl(player);
   if (!officialUrl) return fallback;
 
   const safeName = escapeAttr(player.name);
   const safeUrl = escapeAttr(officialUrl);
   const fallbackSvg = fallback.replace('class="pixel-portrait"', 'class="pixel-portrait portrait-fallback"');
-  // v1.18 #1 #7：圖片載入完成後呼叫 setupPixelPortraitConversion 把照片像素化（pixel_table 演算法）
-  return `<span class="pixel-portrait official-pixel-portrait" style="width:${size}px;height:${size}px" role="img" aria-label="${safeName} 官方像素頭像"><img src="${safeUrl}" alt="${safeName}" loading="lazy" crossorigin="anonymous" onload="window.setupPixelPortraitConversion && window.setupPixelPortraitConversion(this)" onerror="this.parentElement.classList.add('portrait-failed')" style="image-rendering:pixelated;image-rendering:crisp-edges">${fallbackSvg}</span>`;
+  // v2.11：拿掉 crossorigin，照片才能正常載入；CSS image-rendering 提供像素效果，
+  //         load 後再嘗試用 canvas 像素化（CORS 失敗也沒關係，CSS 已提供基本像素感）
+  return `<span class="pixel-portrait official-pixel-portrait" style="width:${size}px;height:${size}px" role="img" aria-label="${safeName} 官方像素頭像"><img src="${safeUrl}" alt="${safeName}" loading="lazy" referrerpolicy="no-referrer" onload="window.setupPixelPortraitConversion && window.setupPixelPortraitConversion(this)" onerror="this.parentElement.classList.add('portrait-failed')" style="image-rendering:pixelated;image-rendering:crisp-edges;width:100%;height:100%;object-fit:cover">${fallbackSvg}</span>`;
 }
 
 // v1.18：將像素化函式暴露到 window，供 onload 呼叫
@@ -1323,7 +1372,22 @@ class SaveManager {
       playerShards: game.playerShards,
       unlockedHeroes: game.unlockedHeroes,
       collectedPlayerKeys: Array.from(game.collectedPlayerKeys || []),
-      majorRosterLimit: game.majorRosterLimit
+      majorRosterLimit: game.majorRosterLimit,
+      // v1.18
+      currentStadiumId: game.currentStadiumId,
+      coachingStaff: game.coachingStaff,
+      hiredCoaches: game.hiredCoaches,
+      firstHalfChamp: game.firstHalfChamp,
+      secondHalfChamp: game.secondHalfChamp,
+      // v2.11
+      currentYear: game.currentYear,
+      seasonHistory: game.seasonHistory,
+      wbcPointsByTeam: game.wbcPointsByTeam,
+      storylineStage: game.storylineStage,
+      wbcBracket: game.wbcBracket,
+      storylineIntroShown: game.storylineIntroShown,
+      // 投手等級/XP
+      playerLevels: game.roster.players.map(p => ({ playerLevel: p.playerLevel, playerXP: p.playerXP, rating: p.rating }))
     };
     localStorage.setItem('baseballGame', JSON.stringify(data));
   }
@@ -1424,6 +1488,30 @@ class SaveManager {
       // 補上：讓存檔之前已在隊上的球員也被列入已收集（避免老存檔抽到同名又入隊）
       game.roster.players.forEach(p => game.collectedPlayerKeys.add(game.playerKey(p)));
       if (Number.isFinite(data.majorRosterLimit)) game.majorRosterLimit = data.majorRosterLimit;
+      // v1.18 + v2.11 新欄位（向後相容）
+      if (data.currentStadiumId) game.currentStadiumId = data.currentStadiumId;
+      if (data.coachingStaff) game.coachingStaff = data.coachingStaff;
+      if (Array.isArray(data.hiredCoaches)) game.hiredCoaches = data.hiredCoaches;
+      if (data.firstHalfChamp) game.firstHalfChamp = data.firstHalfChamp;
+      if (data.secondHalfChamp) game.secondHalfChamp = data.secondHalfChamp;
+      // v2.11 劇情狀態
+      if (Number.isFinite(data.currentYear)) game.currentYear = data.currentYear;
+      if (Array.isArray(data.seasonHistory)) game.seasonHistory = data.seasonHistory;
+      if (data.wbcPointsByTeam) game.wbcPointsByTeam = data.wbcPointsByTeam;
+      if (data.storylineStage) game.storylineStage = data.storylineStage;
+      if (data.wbcBracket) game.wbcBracket = data.wbcBracket;
+      if (typeof data.storylineIntroShown === 'boolean') game.storylineIntroShown = data.storylineIntroShown;
+      // 球員等級回填
+      if (Array.isArray(data.playerLevels)) {
+        data.playerLevels.forEach((info, idx) => {
+          const p = game.roster.players[idx];
+          if (p && info) {
+            if (info.playerLevel) p.playerLevel = info.playerLevel;
+            if (info.playerXP) p.playerXP = info.playerXP;
+            if (info.rating) p.rating = info.rating;
+          }
+        });
+      }
       game.normalizeManagementState();
     }
   }
@@ -1619,6 +1707,27 @@ class Game {
     this.playoffStage = null;
     // 賽程長度更新為一季 40 場（上下半季各 20）
     if (this.seasonManager) this.seasonManager.seasonLength = 40;
+
+    // ===== v2.11 新增狀態 =====
+    // 主線劇情：年份從 2026 開始，4 季 = 2026~2029，第 5 年 = WBC 2030
+    this.currentYear = 2026;
+    // 歷史戰績：每年一筆 {year, wins, losses, firstHalfChamp, secondHalfChamp, finalRank, playoffResult, wbcPointsThisYear}
+    this.seasonHistory = [];
+    // WBC 累計積分（每隊一個 key），4 季結束後比積分
+    this.wbcPointsByTeam = {};
+    // 主線階段：'cpbl_seasons' (1-4 季) / 'wbc_qualified' / 'wbc_eliminated' / 'wbc_running' / 'game_over'
+    this.storylineStage = 'cpbl_seasons';
+    // WBC 對戰結果（取得代表權後使用）
+    this.wbcBracket = null;
+    // 是否已經顯示過主線劇情開場
+    this.storylineIntroShown = false;
+
+    // v2.11 #5：補初始開場廣播（讓玩家第一場就有歡迎詞）
+    const initStadium = window.STADIUMS_DATA?.[this.currentStadiumId];
+    if (this.opponentTeam && initStadium) {
+      const openingC = pickCommentary('opening', TEAM_NAME_DISPLAY, this.currentOpponent || this.opponentTeam.name, initStadium.name);
+      if (openingC) this.log.push(`📢 ${openingC}`);
+    }
   }
 
   // v1.14：球員唯一識別 key（國際巨星用 englishName，本土用 name + team）
@@ -2288,29 +2397,46 @@ class Game {
   }
 
   drawCoach() {
-    // 抽教練（v1.18 #16），每次 200 資金
-    if (typeof window === 'undefined' || !window.COACHES_POOL) return null;
-    const pool = window.COACHES_POOL;
-    if (this.currency < 200) {
-      this.addManagementLog('資金不足，無法抽教練。');
-      return null;
+    // v2.11：每次 200 資金；回傳 {success, coach, message} 給 UI 使用
+    if (typeof window === 'undefined' || !window.COACHES_POOL) {
+      return { success: false, message: '教練資料未載入。' };
     }
-    this.currency -= 200;
+    const pool = window.COACHES_POOL;
+    const cost = 200;
+    if (this.currency < cost) {
+      this.addManagementLog('資金不足，無法抽教練。');
+      return { success: false, message: `資金不足（需要 ${cost}，目前 ${this.currency}）` };
+    }
+    // 先檢查整體是否還抽得到任何教練
+    const remaining = pool.filter(c => !this.hiredCoaches.includes(c.id));
+    if (!remaining.length) {
+      return { success: false, message: '所有教練都已聘僱完畢。' };
+    }
+    this.currency -= cost;
     // SSR 5%, SR 20%, R 75%
     const roll = Math.random();
     let rarity = 'R';
     if (roll < 0.05) rarity = 'SSR';
     else if (roll < 0.25) rarity = 'SR';
-    const pickPool = pool.filter(c => c.rarity === rarity && !this.hiredCoaches.includes(c.id));
+    let pickPool = remaining.filter(c => c.rarity === rarity);
+    // v2.11 修正：若目標稀有度抽完，往下層稀有度補抽（避免抽到 undefined）
     if (!pickPool.length) {
-      this.addManagementLog('該稀有度教練已抽完。');
-      return null;
+      const fallbackOrder = rarity === 'SSR' ? ['SR', 'R'] : rarity === 'SR' ? ['R', 'SSR'] : ['SR', 'SSR'];
+      for (const r of fallbackOrder) {
+        const candidates = remaining.filter(c => c.rarity === r);
+        if (candidates.length) { pickPool = candidates; rarity = r; break; }
+      }
+    }
+    if (!pickPool.length) {
+      // 應該不會走到這（前面已檢查 remaining），保險用
+      this.currency += cost;
+      return { success: false, message: '抽不到教練了。' };
     }
     const coach = pickPool[Math.floor(Math.random() * pickPool.length)];
     this.hiredCoaches.push(coach.id);
     this.addManagementLog(`🌟 抽到 ${coach.rarity} 教練：${coach.name}！`);
     this.saveManager.save(this);
-    return coach;
+    return { success: true, coach, message: `抽到 ${coach.rarity} 教練 ${coach.name}！` };
   }
 
 
@@ -2937,8 +3063,11 @@ class Game {
   }
 
   prepareNextMatch() {
+    // v2.11 #10：清空上一場的轉播日誌
+    this.log = [];
     this.inning = 1;
     this.outs = 0;
+    this.currentHalf = 'top';   // 重新從上半局開始
     this.pickoffAttemptsThisHalf = 0;
     this.resetCount();
     this.playerRunners = [null, null, null];
@@ -3131,7 +3260,7 @@ class Game {
   seasonEndResolution() {
     this.addManagementLog(i18n.seasonComplete);
     this.roster.players.forEach(player => {
-      player.gainXP(50); // Gain XP for playing season
+      player.gainXP(50);
       player.applyAgeDecline();
       if (player.checkInjury()) {
         this.addManagementLog(`${player.name} 受傷了！`);
@@ -3140,13 +3269,210 @@ class Game {
     });
     this.addManagementLog(`${i18n.seasonEnded} ${this.seasonManager.record}.`);
 
-    // v1.18 #19：CPBL 季後賽結算
-    this.runPlayoffs();
+    // v1.18 #19：CPBL 季後賽結算（會更新 firstHalfChamp / secondHalfChamp 與冠軍）
+    const playoffResult = this.runPlayoffs();
 
+    // v2.11：紀錄歷史戰績 + 計算 WBC 積分
+    this.recordSeasonHistoryAndWbcPoints(playoffResult);
+
+    this.saveManager.save(this);
+
+    // v2.11：劇情分支判斷
+    if (this.currentYear >= WBC_QUALIFICATION_RULES.startYear + WBC_QUALIFICATION_RULES.totalSeasons - 1) {
+      // 已打完 4 季 → 判定代表權
+      this.evaluateWBCQualification();
+    } else {
+      // 進入下一年
+      this.startNextYear();
+    }
+  }
+
+  // v2.11：紀錄這季成績與計算 WBC 積分
+  recordSeasonHistoryAndWbcPoints(playoffResult) {
+    const TEAM = TEAM_NAME_DISPLAY;
+    const RULES = window.WBC_QUALIFICATION_RULES || WBC_QUALIFICATION_RULES;
+    const standings = (this.leagueStandings || []).slice();
+    standings.forEach(row => {
+      const g = (row.wins || 0) + (row.losses || 0);
+      row.winPct = g > 0 ? (row.wins || 0) / g : 0;
+    });
+    standings.sort((a, b) => b.winPct - a.winPct);
+
+    // 對每支隊伍計算這個球季積分並累加進 wbcPointsByTeam
+    const yearPoints = {};
+    standings.forEach((row, idx) => {
+      let pts = 0;
+      if (idx === 0) pts += RULES.yearRank1Points;
+      if (idx === 1) pts += RULES.yearRank2Points;
+      if (row.team === this.firstHalfChamp)  pts += RULES.halfChampPoints;
+      if (row.team === this.secondHalfChamp) pts += RULES.halfChampPoints;
+      if (row.team === playoffResult?.champion)  pts += RULES.champPoints;
+      if (row.team === playoffResult?.runnerUp)  pts += RULES.runnerUpPoints;
+      if (row.team === playoffResult?.thirdPlace) pts += RULES.thirdPlacePoints;
+      yearPoints[row.team] = pts;
+      this.wbcPointsByTeam[row.team] = (this.wbcPointsByTeam[row.team] || 0) + pts;
+    });
+
+    const myRow = standings.find(s => s.team === TEAM);
+    const myRank = standings.findIndex(s => s.team === TEAM) + 1;
+
+    this.seasonHistory.push({
+      year: this.currentYear,
+      wins: myRow?.wins || this.seasonManager.wins,
+      losses: myRow?.losses || this.seasonManager.losses,
+      firstHalfChamp: this.firstHalfChamp,
+      secondHalfChamp: this.secondHalfChamp,
+      finalRank: myRank || null,
+      playoffChampion: playoffResult?.champion,
+      playoffRunnerUp: playoffResult?.runnerUp,
+      myWbcPoints: yearPoints[TEAM] || 0,
+      cumulativeWbcPoints: this.wbcPointsByTeam[TEAM] || 0,
+      yearPoints: yearPoints
+    });
+
+    this.addManagementLog(`📊 ${this.currentYear} 年度結束：政大棒球 ${myRank} 名，本季 WBC 積分 +${yearPoints[TEAM] || 0}，累計 ${this.wbcPointsByTeam[TEAM] || 0}。`);
+  }
+
+  // v2.11：開始下一年
+  startNextYear() {
+    this.currentYear++;
+    this.seasonManager.currentMatch = 1;
+    this.seasonManager.wins = 0;
+    this.seasonManager.losses = 0;
+    this.seasonManager.firstHalfRecord = { wins: 0, losses: 0 };
+    this.seasonManager.secondHalfRecord = { wins: 0, losses: 0 };
+    this.firstHalfChamp = null;
+    this.secondHalfChamp = null;
+    this.leagueStandings = this.createInitialStandings();
+    this.addManagementLog(`🗓️ 進入 ${this.currentYear} 年球季，目標 WBC 代表權！`);
+    this.prepareNextMatch();
+  }
+
+  // v2.11：4 季結束後判定 WBC 代表權
+  evaluateWBCQualification() {
+    const TEAM = TEAM_NAME_DISPLAY;
+    const entries = Object.entries(this.wbcPointsByTeam).sort((a, b) => b[1] - a[1]);
+    const topTeam = entries[0]?.[0];
+    this.addManagementLog('═══ 4 年 WBC 積分結算 ═══');
+    entries.forEach(([team, pts], idx) => {
+      this.addManagementLog(`  ${idx + 1}. ${team}：${pts} 分${team === TEAM ? ' ← 你的隊伍' : ''}`);
+    });
+    if (topTeam === TEAM) {
+      this.storylineStage = 'wbc_qualified';
+      this.addManagementLog('🎌 取得中華隊代表權！');
+    } else {
+      this.storylineStage = 'wbc_eliminated';
+      this.addManagementLog(`代表權落入 ${topTeam} 手中。遊戲結束。`);
+    }
+    this.saveManager.save(this);
+    // 顯示對應結算畫面
+    if (typeof window !== 'undefined' && typeof window.showStorylineEnding === 'function') {
+      window.showStorylineEnding(this.storylineStage);
+    }
+  }
+
+  // v2.11：執行 WBC 8 強單淘汰賽
+  runWBCTournament() {
+    const TEAM = TEAM_NAME_DISPLAY;
+    const teams = window.WBC_NATIONAL_TEAMS || {};
+    // 8 強：中華隊 + 7 國
+    const bracket = [
+      { code: 'TPE', name: '中華隊', strength: this.estimateTeamStrength(), isPlayer: true },
+      ...Object.values(teams).map(t => ({ code: t.code, name: t.name, strength: t.strength, isPlayer: false }))
+    ];
+    // 隨機抽籤
+    for (let i = bracket.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bracket[i], bracket[j]] = [bracket[j], bracket[i]];
+    }
+    this.wbcBracket = {
+      quarterfinals: [],   // [[t1, t2, winner], ...]
+      semifinals: [],
+      final: null,
+      thirdPlace: null,
+      result: null         // 'champion' / 'runnerUp' / 'semifinal' / 'quarterfinal'
+    };
+    const log = [];
+    log.push('═══ WBC 2030 八強單淘汰賽開幕 ═══');
+    // 八強對戰 4 場
+    const semiTeams = [];
+    for (let i = 0; i < 8; i += 2) {
+      const a = bracket[i], b = bracket[i + 1];
+      const winner = this.simulateWBCGame(a, b);
+      this.wbcBracket.quarterfinals.push({ a, b, winner });
+      log.push(`【八強】${a.name} vs ${b.name} → ${winner.name} 晉級`);
+      semiTeams.push(winner);
+      // 若玩家八強就被淘汰 → 結束
+      if (a.isPlayer || b.isPlayer) {
+        if (!winner.isPlayer) {
+          this.wbcBracket.result = 'quarterfinal';
+          this.wbcBracket.eliminatedBy = winner.name;
+          this.wbcBracket.eliminatedStage = '八強';
+        }
+      }
+    }
+    // 四強 2 場
+    const finalTeams = [];
+    let semiLosers = [];
+    for (let i = 0; i < 4; i += 2) {
+      const a = semiTeams[i], b = semiTeams[i + 1];
+      const winner = this.simulateWBCGame(a, b);
+      this.wbcBracket.semifinals.push({ a, b, winner });
+      log.push(`【四強】${a.name} vs ${b.name} → ${winner.name} 晉級`);
+      finalTeams.push(winner);
+      semiLosers.push(a === winner ? b : a);
+      if ((a.isPlayer || b.isPlayer) && !winner.isPlayer && !this.wbcBracket.result) {
+        this.wbcBracket.result = 'semifinal';
+        this.wbcBracket.eliminatedBy = winner.name;
+        this.wbcBracket.eliminatedStage = '四強';
+      }
+    }
+    // 季軍戰
+    if (semiLosers.length === 2) {
+      const t3 = this.simulateWBCGame(semiLosers[0], semiLosers[1]);
+      this.wbcBracket.thirdPlace = { a: semiLosers[0], b: semiLosers[1], winner: t3 };
+      log.push(`【季軍戰】${semiLosers[0].name} vs ${semiLosers[1].name} → 第三名：${t3.name}`);
+    }
+    // 冠軍戰
+    if (finalTeams.length === 2) {
+      const a = finalTeams[0], b = finalTeams[1];
+      const champion = this.simulateWBCGame(a, b);
+      const runnerUp = a === champion ? b : a;
+      this.wbcBracket.final = { a, b, winner: champion };
+      log.push(`【冠軍戰】${a.name} vs ${b.name} → 冠軍：${champion.name}`);
+      if (champion.isPlayer) {
+        this.wbcBracket.result = 'champion';
+      } else if (runnerUp.isPlayer) {
+        this.wbcBracket.result = 'runnerUp';
+        this.wbcBracket.eliminatedBy = champion.name;
+        this.wbcBracket.eliminatedStage = '冠軍戰';
+      } else if (!this.wbcBracket.result) {
+        // 玩家不在冠軍戰
+      }
+    }
+    log.push('═══ WBC 賽程結束 ═══');
+    log.forEach(line => this.addManagementLog(line));
+    this.storylineStage = 'wbc_running';
     this.saveManager.save(this);
   }
 
-  // v1.18 #19：CPBL 季後賽完整流程（依研究報告 8 修正）
+  // v2.11：單場 WBC 模擬（簡化版，依隊伍強度）
+  simulateWBCGame(teamA, teamB) {
+    const a = teamA.strength + (Math.random() - 0.5) * 15;
+    const b = teamB.strength + (Math.random() - 0.5) * 15;
+    return a >= b ? teamA : teamB;
+  }
+
+  // v2.11：估算中華隊（=政大棒球一軍）整體強度，用於 WBC 比賽
+  estimateTeamStrength() {
+    const majors = this.roster.players.filter(p => p.level !== 'minor');
+    if (!majors.length) return 80;
+    const avgBatter = majors.filter(p => p.role === 'B').reduce((s, p) => s + ((p.abilities.contact + p.abilities.power) / 2), 0) / Math.max(1, majors.filter(p => p.role === 'B').length);
+    const avgPitcher = majors.filter(p => p.role === 'P').reduce((s, p) => s + ((p.abilities.velocity + p.abilities.control + p.abilities.breaking) / 3), 0) / Math.max(1, majors.filter(p => p.role === 'P').length);
+    return Math.round((avgBatter * 0.5 + avgPitcher * 0.5));
+  }
+
+  // v1.18 #19：CPBL 季後賽完整流程（v2.11 修：回傳結果讓 WBC 積分計算用）
   runPlayoffs() {
     const TEAM = TEAM_NAME_DISPLAY;
     const standings = (this.leagueStandings || []).slice();
@@ -3159,15 +3485,11 @@ class Game {
 
     const firstChamp = this.firstHalfChamp || TEAM;
     const secondChamp = this.secondHalfChamp || TEAM;
-    const myWinPct = (() => {
-      const r = standings.find(s => s.team === TEAM);
-      return r ? r.winPct : 0.5;
-    })();
 
     this.addManagementLog('═══ 季後賽開始 ═══');
     this.addManagementLog(`上半季冠軍：${firstChamp}　下半季冠軍：${secondChamp}`);
 
-    let champion;
+    let champion, runnerUp, thirdPlace;
     if (firstChamp === secondChamp) {
       // 情境 B：上下半季同隊 → 年度 2、3 名打挑戰賽，5 戰 3 勝
       const nonChamps = standings.filter(s => s.team !== firstChamp);
@@ -3175,25 +3497,24 @@ class Game {
       const seed3 = nonChamps[1]?.team || '未知';
       this.addManagementLog(`季後挑戰賽：${seed2} vs ${seed3}（年度第 2 vs 年度第 3，5 戰 3 勝）`);
       const challengeWinner = this.simulatePlayoffSeries(seed2, seed3, 3, 0);
+      thirdPlace = challengeWinner === seed2 ? seed3 : seed2;
       this.addManagementLog(`季後挑戰賽勝出：${challengeWinner}`);
-      // 總冠軍賽：包辦兩半季隊讓 1 勝 + 主場優勢
       this.addManagementLog(`總冠軍賽：${firstChamp} (讓 1 勝) vs ${challengeWinner}（7 戰 4 勝）`);
       champion = this.simulatePlayoffSeries(firstChamp, challengeWinner, 4, 1);
+      runnerUp = champion === firstChamp ? challengeWinner : firstChamp;
     } else {
-      // 情境 A：上下半季不同隊
-      // 取兩半季冠軍各自年度勝率
       const firstRow = standings.find(s => s.team === firstChamp);
       const secondRow = standings.find(s => s.team === secondChamp);
       const higherChamp = (firstRow?.winPct || 0) >= (secondRow?.winPct || 0) ? firstChamp : secondChamp;
       const lowerChamp = higherChamp === firstChamp ? secondChamp : firstChamp;
-
-      // 第三隊：年度勝率最高之非半季冠軍
       const wildCard = standings.find(s => s.team !== firstChamp && s.team !== secondChamp)?.team || '未知';
       this.addManagementLog(`季後挑戰賽：${lowerChamp} (讓 1 勝) vs ${wildCard}（5 戰 3 勝，半季冠軍 1 勝優勢）`);
       const challengeWinner = this.simulatePlayoffSeries(lowerChamp, wildCard, 3, 1);
+      thirdPlace = challengeWinner === lowerChamp ? wildCard : lowerChamp;
       this.addManagementLog(`季後挑戰賽勝出：${challengeWinner}`);
       this.addManagementLog(`總冠軍賽：${higherChamp} vs ${challengeWinner}（7 戰 4 勝，無讓 1 勝）`);
       champion = this.simulatePlayoffSeries(higherChamp, challengeWinner, 4, 0);
+      runnerUp = champion === higherChamp ? challengeWinner : higherChamp;
     }
 
     this.addManagementLog(`🏆 總冠軍：${champion} 🏆`);
@@ -3204,6 +3525,7 @@ class Game {
       this.addManagementLog(`政大棒球隊本季止步於 ${this.seasonManager.record}，明年再戰！`);
     }
     this.addManagementLog('═══ 季後賽結束 ═══');
+    return { champion, runnerUp, thirdPlace };
   }
 
   // v1.18：模擬季後賽系列賽（簡化用 winPct 機率模型）
@@ -3279,12 +3601,28 @@ function calcBattedBall(ev_mph, la_deg, sa_deg, stadium) {
   const isFoul = Math.abs(sa_deg) > 45;
   // 球種分類
   let ballType;
-  if (la_deg < 10) ballType = 'ground';        // 滾地球
-  else if (la_deg < 25) ballType = 'liner';    // 平飛球
-  else if (la_deg < 40) ballType = 'fly';      // 高飛球
-  else ballType = 'popup';                     // 內野高飛
-  // 全壘打判定
-  const isHR = !isFoul && ballType !== 'ground' && ballType !== 'popup' && dist_m >= wallDist;
+  if (la_deg < 10) ballType = 'ground';
+  else if (la_deg < 25) ballType = 'liner';
+  else if (la_deg < 40) ballType = 'fly';
+  else ballType = 'popup';
+
+  // v2.11：計算球到達全壘打牆位置時的高度（給政大「天網」用）
+  let trajectoryHeightAtWall = Infinity;
+  if (!isFoul && ballType !== 'ground' && ballType !== 'popup' && wallDist > 0) {
+    const v_h = ev_mps * Math.cos(la_rad);
+    const v_v = ev_mps * Math.sin(la_rad);
+    if (v_h > 0) {
+      const t_wall = wallDist / v_h;
+      // 空氣阻力衰減（簡化）：高度比真空計算少 ~15%
+      trajectoryHeightAtWall = (v_v * t_wall - 0.5 * g * t_wall * t_wall) * 0.85;
+    }
+  }
+  const fenceHeight = (stadium && stadium.fenceHeight) || 3;
+
+  // 全壘打判定：距離超過 + 高度也夠（v2.11：天網 10m 卡掉低彈道砲）
+  const isHR = !isFoul && ballType !== 'ground' && ballType !== 'popup'
+            && dist_m >= wallDist
+            && trajectoryHeightAtWall > fenceHeight;
   // Barrel 判定（Statcast）：EV ≥ 98 且 LA 在 26-30 之間，每多 1 mph EV 擴張 LA 範圍
   let isBarrel = false;
   if (ev_mph >= 98) {
@@ -3307,10 +3645,15 @@ function calcBattedBall(ev_mph, la_deg, sa_deg, stadium) {
     else if (sa_deg < 20) direction = '二壘方向';
     else direction = '一壘方向';
   }
+  // v2.11：若擊到天網（距離夠但高度不夠），讓擊球結果偏向 fly out 接殺或牆前安打
+  const hitNet = !isFoul && ballType !== 'ground' && ballType !== 'popup'
+              && dist_m >= wallDist && trajectoryHeightAtWall <= fenceHeight;
   return {
     ev_mph, la_deg, sa_deg, dist_m: Math.round(dist_m),
     wallDist: Math.round(wallDist),
-    ballType, direction, isFoul, isHR, isBarrel
+    fenceHeight,
+    trajectoryHeightAtWall: Math.round(trajectoryHeightAtWall * 10) / 10,
+    ballType, direction, isFoul, isHR, isBarrel, hitNet
   };
 }
 
@@ -3384,23 +3727,27 @@ function rollFieldingOutcome(fielder, battedBall, gameRef) {
   const effective = Math.max(20, fielding - penalty);
   // 擊球難度（Barrel 越難守、極端噴射角越難守）
   let difficulty = 0;
-  if (battedBall.isBarrel) difficulty += 25;
-  if (Math.abs(battedBall.sa_deg) > 35) difficulty += 10;
-  if (battedBall.ballType === 'liner') difficulty += 15; // 平飛球最難守
-  // 成功率 = (effective - difficulty) / 100, baseline ≈ 0.7
-  const successProb = Math.max(0.25, Math.min(0.95, 0.70 + (effective - 65) / 200 - difficulty / 200));
+  if (battedBall.isBarrel) difficulty += 20;
+  if (Math.abs(battedBall.sa_deg) > 35) difficulty += 8;
+  if (battedBall.ballType === 'liner') difficulty += 10;
+  // v2.11：成功率對齊真實 MLB 守備率 ~.985。
+  //   baseline 0.985 + 守備能力修正 + 守位懲罰修正 + 擊球難度修正
+  //   注意這裡的「成功」表示「沒有失誤」（不一定接殺，可能是強勁安打但不算失誤）
+  //   對於滾地、平飛、外野飛球都用這個 baseline。但接到 ≠ 接殺，接殺另外判定。
+  const successProb = Math.max(0.85, Math.min(0.998,
+    0.985 + (effective - 75) / 800 - difficulty / 500 - penalty / 400
+  ));
   if (Math.random() < successProb) {
     return { success: true, error: null };
   }
-  // 失誤類型 by 機率
-  // 暴傳取決於肩力，漏接取決於 fielding，恍神取決於 經驗(level)
+  // 失誤類型 by 機率（暴傳/漏接/恍神）
   const totalErrRoll = Math.random();
-  const throwErrChance = 0.5 - (arm - 70) / 200;
-  const fieldErrChance = 0.4 - (fielding - 70) / 200;
+  const throwErrChance = 0.45 - (arm - 70) / 250;
+  const fieldErrChance = 0.40 - (fielding - 70) / 250;
   let errorType;
-  if (totalErrRoll < throwErrChance) errorType = 'throw';      // 暴傳
-  else if (totalErrRoll < throwErrChance + fieldErrChance) errorType = 'field';  // 漏接
-  else errorType = 'mental';   // 恍神
+  if (totalErrRoll < throwErrChance) errorType = 'throw';
+  else if (totalErrRoll < throwErrChance + fieldErrChance) errorType = 'field';
+  else errorType = 'mental';
   return { success: false, error: errorType };
 }
 
@@ -4169,6 +4516,26 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
       return finishAtBat(i18n.homeRun);
     }
 
+    // v2.11：打到天網（距離夠但高度不夠）→ 多半變成牆前接殺，少數運氣變二壘安打
+    if (ballInfo.hitNet) {
+      game.addToLog(`🕸️ 擊球撞上天網（高度 ${ballInfo.trajectoryHeightAtWall} m，網高 ${ballInfo.fenceHeight} m）！`);
+      // 70% 牆前接殺、30% 二壘安打（打點圈跑者得分）
+      if (Math.random() < 0.7) {
+        game.recordOut();
+        game.resetCount();
+        game.addToLog(`📢 球被天網彈下，外野手撿到後傳回內野，${batter.name} 被觸殺出局。`);
+        game.addCommentary(i18n.flyOut, batter, shadowClone);
+        return finishAtBat(i18n.flyOut);
+      } else {
+        game.advanceRunners(i18n.double, battingTeam, batter);
+        game.resetCount();
+        game.addToLog(`📢 球被天網彈下到死角！${batter.name} 衝上二壘。`);
+        game.addCommentary(i18n.double, batter, shadowClone);
+        awardPlayerXP(batter, 22, 'batting', game);
+        return finishAtBat(i18n.double);
+      }
+    }
+
     // 守備判定
     const defensiveTeamRunners = battingTeam === 'player' ? game.opponentTeam : null;
     const myDefensiveAssignments = battingTeam === 'opponent' ? game.defensiveAssignments : null;
@@ -4208,6 +4575,30 @@ function resolveAtBat(pitcher, batter, burnLife = false) {
     // 滾地球
     if (ballInfo.ballType === 'ground') {
       if (fieldingResult.success) {
+        // v2.11 #6：雙殺判定 — 跑者在一壘 + <2 出局 → 機率觸發雙殺
+        const runners = battingTeam === 'opponent' ? game.opponentRunners : game.playerRunners;
+        const runnerOnFirst = !!runners[0];
+        const canDoublePlay = runnerOnFirst && game.outs < 2;
+        if (canDoublePlay) {
+          // 雙殺基礎機率 0.42，依擊球速度與守備能力調整
+          const fielder = fielderInfo?.player;
+          const fld = fielder?.abilities?.fielding || 70;
+          const arm = fielder?.abilities?.arm || 70;
+          const speed = batter.abilities?.speed || 70;
+          // EV 越快 → 越容易雙殺；打者腳程快 → 雙殺難度上升
+          let dpProb = 0.42 + (ballInfo.ev_mph - 90) / 200 + (fld - 70) / 250 + (arm - 70) / 250 - (speed - 70) / 200;
+          dpProb = Math.max(0.15, Math.min(0.7, dpProb));
+          if (Math.random() < dpProb) {
+            // 雙殺成功 → 一壘跑者出局 + 打者出局；其他壘上跑者各退一個壘位
+            runners[0] = null;
+            game.recordOut();   // 一壘跑者
+            if (game.outs < 3) game.recordOut(); // 打者
+            game.resetCount();
+            game.addToLog(`💥 雙殺！${batter.name} 打出滾地球，二壘到一壘的完美雙殺。`);
+            game.addCommentary(i18n.groundOut, batter, shadowClone);
+            return finishAtBat('滾地雙殺');
+          }
+        }
         game.recordOut();
         game.resetCount();
         const c = pickCommentary('groundOut', batter);

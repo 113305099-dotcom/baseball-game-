@@ -3610,3 +3610,772 @@ body {
     padding: 6px 10px;
   }
 }
+
+/* ===== v1.19：2000 年日系 PC 像素棒球美術方向 ===== */
+:root {
+  --pixel-bg: #182231;
+  --pixel-panel: #f2e6bb;
+  --pixel-ink: #1c2230;
+  --pixel-line: #4b3a2a;
+  --pixel-cream: #fff3cf;
+  --pixel-gold: #f3c15a;
+  --pixel-clay: #bd7647;
+  --pixel-grass: #45a65e;
+  --pixel-sky: #74b9df;
+  --pixel-blue: #2f6f9f;
+  --shadow: 6px 6px 0 rgba(39, 28, 22, 0.42);
+}
+
+html,
+body,
+img,
+canvas {
+  image-rendering: pixelated;
+}
+
+body {
+  color: var(--pixel-ink);
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.14) 1px, transparent 1px),
+    linear-gradient(180deg, #7fc6ea 0 34%, #f8f2cf 34% 39%, #60b665 39% 70%, #b86e42 70% 100%);
+  background-size: 10px 10px, 10px 10px, auto;
+  font-family: "DotGothic16", "Noto Sans TC", "Microsoft JhengHei", monospace;
+}
+
+.container {
+  padding: 10px;
+}
+
+.hud-bar,
+.scene,
+.scoreboard-panel,
+.log-panel,
+.side-panel,
+.roster-section,
+.trading-card,
+.medical-card,
+.modal-card,
+.pregame-row,
+.coach-card,
+.hero-card {
+  border: 4px solid var(--pixel-line);
+  border-radius: 0;
+  box-shadow: var(--shadow);
+}
+
+.hud-bar {
+  top: 8px;
+  padding: 8px;
+  color: var(--pixel-cream);
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(180deg, #2f4054, #151e2c);
+  background-size: 8px 8px, 8px 8px, auto;
+  backdrop-filter: none;
+}
+
+.brand-lockup,
+.brand-lockup strong,
+.hud-chip strong {
+  color: #fff0a8;
+  text-shadow: 2px 2px 0 #0a0e15;
+}
+
+.brand-mark,
+.hud-chip {
+  border: 3px solid #0e1520;
+  border-radius: 0;
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.24), inset 3px 3px 0 rgba(255,255,255,0.14);
+}
+
+.brand-mark {
+  color: #2b1d10;
+  background: var(--pixel-gold);
+}
+
+.hud-chip {
+  min-height: 48px;
+  background: #203047;
+}
+
+.hud-chip span {
+  color: #b9d6e8;
+}
+
+.scene,
+.scene-header,
+.lobby-copy,
+.scoreboard-panel,
+.log-panel,
+.side-panel,
+.roster-section,
+.medical-card,
+.pregame-panel,
+.shop-card,
+.hero-card {
+  color: var(--pixel-ink);
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(180deg, #fff1c1, #d6ad68);
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.scene {
+  padding: 18px;
+}
+
+.scene-header,
+.lobby-copy {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+h1,
+h2,
+h3,
+.scene-header h1,
+.scene-header h2,
+.lobby-title h1,
+.roster-section h3,
+.scoreboard-panel h3,
+.log-panel h3,
+.side-panel h3 {
+  color: #23314b;
+  font-family: "DotGothic16", "Noto Sans TC", monospace;
+  text-shadow: 2px 2px 0 #fff0b8;
+}
+
+h1 {
+  max-width: 680px;
+  font-size: clamp(44px, 7vw, 92px);
+  line-height: 1.04;
+}
+
+h2 {
+  font-size: clamp(32px, 4vw, 52px);
+}
+
+.eyebrow,
+.action-code {
+  color: #8b3e2f;
+  font-family: "DotGothic16", "JetBrains Mono", monospace;
+  letter-spacing: 1px;
+}
+
+.lobby-subtitle,
+.roster-section header p,
+.pregame-note,
+.medical-player-meta,
+.card-meta,
+.brand-lockup small {
+  color: #4d412f;
+}
+
+.lobby-grid {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(420px, 1fr);
+  gap: 18px;
+}
+
+.lobby-action,
+.back-button,
+.control-button,
+.medical-btn,
+.nav-button,
+.card-btn,
+.row-btn,
+.bullpen-btn,
+.hero-redeem-btn,
+.lineup-row button {
+  border: 3px solid #241c16;
+  border-radius: 0;
+  color: #211910;
+  background: #f5d277;
+  box-shadow: inset -3px -3px 0 rgba(70, 40, 18, 0.28), inset 3px 3px 0 rgba(255,255,255,0.32), 3px 3px 0 rgba(37, 25, 18, 0.32);
+  transition: transform 80ms steps(2), filter 80ms steps(2);
+}
+
+.lobby-action {
+  min-height: 82px;
+  padding: 12px;
+}
+
+.lobby-action:hover,
+.back-button:hover,
+.control-button:hover,
+.medical-btn:hover,
+.nav-button:hover,
+.card-btn:hover,
+.row-btn:hover {
+  border-color: #111820;
+  filter: brightness(1.05);
+  transform: translate(-1px, -1px);
+}
+
+.lobby-action.primary,
+.control-button.primary,
+.medical-btn.protect {
+  color: #fff8c7;
+  background: #34784f;
+}
+
+.control-button.danger {
+  color: #fff8c7;
+  background: #b64b3d;
+}
+
+.control-button.warning {
+  background: #c88b42;
+}
+
+.control-button.accent {
+  color: #fff8c7;
+  background: var(--pixel-blue);
+}
+
+.stadium-plate {
+  position: relative;
+  min-height: 480px;
+  overflow: hidden;
+  border: 4px solid #2b2118;
+  border-radius: 0;
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px),
+    url("art-assets/production/backgrounds/pc-2000s-lobby-ballpark.png") center / cover no-repeat,
+    linear-gradient(180deg, var(--pixel-sky), var(--pixel-grass));
+  background-size: 8px 8px, 8px 8px, cover, auto;
+  box-shadow: 8px 8px 0 rgba(54, 38, 24, 0.36);
+}
+
+.stadium-plate::after {
+  content: "BALLPARK 2000";
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border: 3px solid #241c16;
+  color: #fff5bd;
+  background: #26364c;
+  font-family: "DotGothic16", monospace;
+  font-size: 12px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.28);
+}
+
+.stadium-plate svg {
+  display: none;
+}
+
+.classic-scoreboard {
+  border-color: #2c261f;
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(180deg, #355f43, #203d31);
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.trading-card,
+.roster-card {
+  color: var(--pixel-ink);
+  background:
+    linear-gradient(135deg, rgba(52,120,79,0.22), transparent 36%),
+    linear-gradient(0deg, rgba(255,255,255,0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(180deg, #fff0bf, #c99956);
+  background-size: auto, 8px 8px, 8px 8px, auto;
+}
+
+.roster-card .card-name,
+.card-name {
+  color: #22314b;
+  text-shadow: 2px 2px 0 #fff0b8;
+}
+
+.card-rank-badge,
+.rank-tag,
+.trait-pill,
+.condition-pill,
+.roster-count {
+  border: 2px solid #241c16;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.24);
+}
+
+.official-pixel-portrait {
+  border: 4px solid #211910;
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
+    #6aa9c9;
+  background-size: 8px 8px, 8px 8px, auto;
+  box-shadow: 0 0 0 3px #ffe08a, 4px 4px 0 rgba(48, 31, 18, 0.42);
+}
+
+.official-pixel-portrait > img {
+  object-fit: cover;
+  filter: saturate(0.94) contrast(1.16);
+  transform: scale(1.02);
+}
+
+.local-pixel-portrait > img {
+  filter: saturate(1.06) contrast(1.08);
+  transform: none;
+}
+
+.field-pixel-map {
+  border-color: #241c16;
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 42%, #5ec36b 0 47%, #3e9e58 48% 66%, #1f6a41 67%);
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.field-infield {
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+    var(--pixel-clay);
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.field-position,
+.pregame-row,
+.coach-card {
+  border-color: #241c16;
+  border-radius: 0;
+  background: #fff0bd;
+  color: var(--pixel-ink);
+  box-shadow: 4px 4px 0 rgba(54, 38, 24, 0.32);
+}
+
+.field-position:hover,
+.field-position:focus-visible,
+.pregame-row:hover,
+.coach-card:hover,
+.coach-card.active {
+  background: #ffe08a;
+}
+
+.stat-meter,
+.meter,
+.mini-bar {
+  border: 2px solid #241c16;
+  border-radius: 0;
+  background: #4b3a2a;
+}
+
+@media (max-width: 760px) {
+  .scene {
+    padding: 10px;
+  }
+
+  .lobby-copy {
+    padding: 12px;
+  }
+
+  .stadium-plate {
+    min-height: 320px;
+  }
+}
+
+/* =============================================================
+   v2.11 新增樣式：教練卡池移植到 shop / 劇情 / 歷史戰績 /
+                資料中心 / WBC 賽程 / 策略按鈕 tooltip 強化
+   ============================================================= */
+
+/* 策略按鈕 tooltip — 使用瀏覽器原生 title，但補上滑鼠 hover 樣式 */
+.strategy-buttons button[title] {
+  position: relative;
+  cursor: help;
+}
+.strategy-buttons button[title]::after {
+  content: 'ℹ';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 11px;
+  opacity: 0.6;
+  color: var(--accent, #4ade80);
+}
+
+/* 擴張中心的教練卡池區塊 */
+.shop-coaches-panel {
+  grid-column: 1 / -1;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1.5px solid rgba(96, 165, 250, 0.35);
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 14px;
+}
+.shop-coaches-panel .staff-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+.shop-coaches-panel .staff-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.shop-coaches-panel .staff-card {
+  background: rgba(8, 15, 30, 0.85);
+  border: 2px solid;
+  border-radius: 12px;
+  padding: 14px;
+}
+.shop-coaches-panel .staff-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.shop-coaches-panel .staff-card header h5 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+}
+.shop-coaches-panel .staff-card header small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.shop-coaches-panel .staff-rarity {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+  color: #0c0e16;
+}
+.shop-coaches-panel .staff-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin: 6px 0;
+}
+.shop-coaches-panel .staff-specialty {
+  font-size: 12px;
+  margin: 4px 0 8px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.shop-coaches-panel .staff-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.shop-coaches-panel .card-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  background: rgba(15, 23, 42, 0.7);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+.shop-coaches-panel .card-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+}
+.shop-coaches-panel .card-btn.active {
+  background: rgba(74, 222, 128, 0.4);
+  border-color: #4ade80;
+}
+.shop-coaches-panel .hired-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.shop-coaches-panel .hired-slot {
+  background: rgba(15, 30, 50, 0.6);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shop-coaches-panel .hired-role {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.shop-coaches-panel .hired-slot strong {
+  font-size: 16px;
+}
+.shop-coaches-panel .hired-slot small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 主線劇情 / 歷史戰績 / 資料中心 / WBC 共用 panel 樣式 */
+.storyline-body,
+.history-body,
+.data-body,
+.wbc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px;
+}
+.storyline-panel {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(96, 165, 250, 0.35);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.storyline-panel h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #4ade80;
+}
+.storyline-panel.highlight {
+  border-color: #FFC700;
+  background: linear-gradient(135deg, rgba(120, 80, 0, 0.55), rgba(15, 23, 42, 0.85));
+}
+.storyline-panel.highlight h3 {
+  color: #FFC700;
+}
+.storyline-panel.highlight.failure {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(80, 20, 20, 0.55), rgba(15, 23, 42, 0.85));
+}
+.storyline-panel.highlight.failure h3 {
+  color: #fca5a5;
+}
+.storyline-paragraph p {
+  line-height: 1.7;
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.storyline-rules {
+  margin: 6px 0;
+  padding-left: 22px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.85);
+}
+.storyline-progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.storyline-progress > div {
+  background: rgba(8, 15, 30, 0.7);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.storyline-progress span {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.storyline-progress strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  color: #4ade80;
+}
+.storyline-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.storyline-table th,
+.storyline-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.2);
+}
+.storyline-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.storyline-table tr.my-team {
+  background: rgba(74, 222, 128, 0.12);
+  font-weight: 700;
+}
+.storyline-table tr.my-team td {
+  color: #4ade80;
+}
+
+/* 資料中心 */
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.data-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(96, 165, 250, 0.35);
+  border-radius: 12px;
+  padding: 16px;
+}
+.data-card header h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #4ade80;
+}
+.data-card header small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+.data-card .data-note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 10px 0 6px;
+  line-height: 1.6;
+}
+.data-card .data-cols {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 6px 0;
+  word-break: break-all;
+}
+.data-card .data-cols code {
+  background: rgba(96, 165, 250, 0.18);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.data-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.data-actions label.control-button {
+  cursor: pointer;
+  display: inline-block;
+}
+
+/* WBC bracket 顯示 */
+.wbc-bracket-list {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.9;
+}
+.wbc-bracket-list li {
+  color: rgba(255, 255, 255, 0.85);
+}
+.wbc-bracket-list li strong {
+  color: #FFC700;
+}
+
+/* 策略區可用 / 不可用 視覺差異 */
+.strategy-group.strategy-active {
+  border: 1.5px solid rgba(255, 199, 0, 0.6);
+  box-shadow: 0 0 14px rgba(255, 199, 0, 0.2);
+  border-radius: 10px;
+  padding: 4px;
+}
+.strategy-group.strategy-inactive {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+}
+.strategy-group.strategy-inactive button[disabled] {
+  cursor: not-allowed;
+}
+
+/* v2.11：球員照片像素風強化（針對沒有 canvas 像素化的退路） */
+.pixel-portrait.official-pixel-portrait img {
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* WBC 階段切換按鈕區 */
+.wbc-body .control-button.primary {
+  margin-top: 12px;
+}
+
+/* v2.11 compatibility：補回重繪式球員頭像與球員卡可讀性修正 */
+.redrawn-pixel-portrait {
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #75bfdc 0 70%, #4aa45d 70% 100%);
+}
+
+.redrawn-pixel-portrait > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  transform: none;
+}
+
+.roster-card-bio,
+.player-bio {
+  border: 3px solid #4b3a2a;
+  border-left-width: 6px;
+  border-radius: 0;
+  color: #2a2118;
+  background: #fff6cf;
+  box-shadow: inset -3px -3px 0 rgba(190, 124, 66, 0.18);
+  font-style: normal;
+  text-shadow: none;
+}
+
+.roster-card .card-meta span,
+.detail-meta span,
+.medical-tags span,
+.stamina-line,
+.stamina-line span,
+.pitch-chip span,
+.detail-stat span,
+.roster-card-stats .card-stat-item span,
+.player-level-row span {
+  color: #2a2118;
+  text-shadow: none;
+}
+
+.roster-card .card-meta span,
+.detail-meta span,
+.medical-tags span {
+  border: 2px solid rgba(75, 58, 42, 0.72);
+  background: rgba(255, 246, 207, 0.78);
+}
+
+.stamina-line {
+  margin-top: 8px;
+  padding: 5px 7px;
+  border: 2px solid #4b3a2a;
+  background: #fff6cf;
+}
+
+.stamina-line strong,
+.detail-stat strong,
+.roster-card-stats .card-stat-item strong,
+.player-level-row strong {
+  color: #172238;
+  text-shadow: 1px 1px 0 #fff0b8;
+}
+
+.detail-stat,
+.roster-card-stats .card-stat-item,
+.pitch-chip,
+.player-level-row {
+  border: 3px solid #4b3a2a;
+  border-radius: 0;
+  color: #1c2230;
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px),
+    #ffe9a6;
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.detail-header p,
+.roster-section header p,
+.pregame-note {
+  color: #3c2f23;
+}

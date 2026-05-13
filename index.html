@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DotGothic16&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.18">
+  <link rel="stylesheet" href="style.css?v=2.11">
 </head>
 <body>
   <div class="container">
@@ -67,6 +67,18 @@
                 <button class="lobby-action" type="button" data-scene="medical">
                   <span class="action-code">CARE</span>
                   <strong>防護中心</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="storyline">
+                  <span class="action-code">STORY</span>
+                  <strong>主線劇情</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="history">
+                  <span class="action-code">RECORD</span>
+                  <strong>歷史戰績</strong>
+                </button>
+                <button class="lobby-action" type="button" data-scene="data">
+                  <span class="action-code">DATA</span>
+                  <strong>資料中心</strong>
                 </button>
               </div>
             </div>
@@ -136,13 +148,6 @@
               <div id="pregame-defense"></div>
               <div id="pregame-bench"></div>
             </section>
-            <section class="side-panel pregame-coaches-panel">
-              <h3>教練卡池（v1.18）</h3>
-              <p class="pregame-note">用資金抽教練卡（300 資金/抽）、聘為總教練/投手教練/打擊教練/守備教練/體能教練/跑壘教練，影響球員 XP 成長率。</p>
-              <div id="pregame-staff-actions" class="staff-actions"></div>
-              <div id="pregame-staff-list" class="staff-list"></div>
-              <div id="pregame-hired-coaches" class="hired-coaches"></div>
-            </section>
           </div>
         </section>
 
@@ -199,18 +204,18 @@
                 <div class="strategy-group" id="strategy-group-offense">
                   <span>進攻策略（我方打擊時）</span>
                   <div class="strategy-buttons">
-                    <button type="button" data-offense-plan="patient">等球</button>
-                    <button type="button" data-offense-plan="normal">普通</button>
-                    <button type="button" data-offense-plan="aggressive">積極</button>
+                    <button type="button" data-offense-plan="patient" title="等球：選球 +10、巧打 +2、長打 -3、揮棒慾望 -12%。保送多、出局少，但長打也少。對控球差的投手最猛。">等球</button>
+                    <button type="button" data-offense-plan="normal" title="普通：無加成，平衡型打擊。">普通</button>
+                    <button type="button" data-offense-plan="aggressive" title="積極：長打 +6、巧打 -2、選球 -6、揮棒慾望 +12%。全壘打與長打機率上升，但三振與壞球追打增加。落後想搶分時用。">積極</button>
                   </div>
                 </div>
                 <div class="strategy-group" id="strategy-group-defense">
                   <span>投球策略（我方守備時）</span>
                   <div class="strategy-buttons">
-                    <button type="button" data-pitch-plan="fastball">速球</button>
-                    <button type="button" data-pitch-plan="balanced">混合</button>
-                    <button type="button" data-pitch-plan="breaking">變化</button>
-                    <button type="button" data-pitch-plan="waste">引誘</button>
+                    <button type="button" data-pitch-plan="fastball" title="速球：球速 +5、變化 -2、好球率 +4%、長打風險 +5%。適合搶 K，但會被強打者打爆。">速球</button>
+                    <button type="button" data-pitch-plan="balanced" title="混合：無加成，平衡型配球。">混合</button>
+                    <button type="button" data-pitch-plan="breaking" title="變化：變化球 +7、控球 -3、好球率 -3%、長打風險 -4%。適合對付揮棒積極對手，三振率上升但壞球也多。">變化</button>
+                    <button type="button" data-pitch-plan="waste" title="引誘：控球 -6、好球率 -13%、對手揮棒率 +8%、長打風險 -3%。誘騙打者出棒，但容易投出保送。">引誘</button>
                   </div>
                 </div>
               </div>
@@ -349,6 +354,15 @@
               </header>
               <div id="shard-shop-list" class="shard-shop-list"></div>
             </section>
+            <section class="shop-coaches-panel" aria-labelledby="shop-coaches-title">
+              <header class="shard-shop-header">
+                <h3 id="shop-coaches-title">教練卡池</h3>
+                <p>用資金抽教練卡（200 資金/抽）、聘為總教練/投手教練/打擊教練/守備教練/體能教練/跑壘教練，影響球員 XP 成長率。</p>
+              </header>
+              <div id="shop-staff-actions" class="staff-actions"></div>
+              <div id="shop-staff-list" class="staff-list"></div>
+              <div id="shop-hired-coaches" class="hired-coaches"></div>
+            </section>
           </div>
         </section>
 
@@ -378,6 +392,54 @@
         </section>
 
         <section id="season-tab" class="scene legacy-scene" aria-hidden="true"></section>
+
+        <!-- v2.11：主線劇情畫面 -->
+        <section id="storyline-tab" class="scene" aria-labelledby="storyline-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Main Storyline</p>
+              <h2 id="storyline-title">主線劇情 — WBC 2030</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div id="storyline-body" class="storyline-body"></div>
+        </section>
+
+        <!-- v2.11：歷史戰績畫面 -->
+        <section id="history-tab" class="scene" aria-labelledby="history-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Season Archive</p>
+              <h2 id="history-title">歷史戰績回顧</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div id="history-body" class="history-body"></div>
+        </section>
+
+        <!-- v2.11：資料中心畫面（CSV 匯入/匯出） -->
+        <section id="data-tab" class="scene" aria-labelledby="data-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">Data Center</p>
+              <h2 id="data-title">資料中心</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div id="data-body" class="data-body"></div>
+        </section>
+
+        <!-- v2.11：WBC 賽程畫面 -->
+        <section id="wbc-tab" class="scene" aria-labelledby="wbc-title">
+          <div class="scene-header">
+            <div>
+              <p class="eyebrow">World Baseball Classic 2030</p>
+              <h2 id="wbc-title">WBC 世界經典賽</h2>
+            </div>
+            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
+          </div>
+          <div id="wbc-body" class="wbc-body"></div>
+        </section>
       </main>
     </div>
   </div>
@@ -407,6 +469,19 @@
   </div>
 
   <script src="data.js"></script>
+  <script>
+    // v2.11：在 game.js 載入前套用 localStorage 中的資料覆寫，game.js 一開始就能用到
+    (function applyDataOverridesBeforeGame() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('dataOverrides') || '{}');
+        Object.entries(saved).forEach(([target, value]) => {
+          if (value) window[target] = value;
+        });
+      } catch (e) { console.warn('資料覆寫載入失敗', e); }
+    })();
+  </script>
+  <script src="art-assets/production/portraits/portrait-redrawn-manifest.js" onerror="this.remove()"></script>
+  <script src="art-assets/production/portraits/portrait-manifest.js" onerror="this.remove()"></script>
   <script src="game.js"></script>
   <script>
     Object.assign(i18n, {
@@ -431,7 +506,12 @@
       match: 'game-tab',
       roster: 'roster-tab',
       shop: 'shop-tab',
-      medical: 'medical-tab'
+      medical: 'medical-tab',
+      // v2.11 新增
+      storyline: 'storyline-tab',
+      history: 'history-tab',
+      data: 'data-tab',
+      wbc: 'wbc-tab'
     };
     let currentScene = 'lobby';
     let pregameSelectedLineupSlot = 0;
@@ -445,7 +525,12 @@
       if (name === 'medical') renderMedicalScene();
       if (name === 'pregame') renderPregameScene();
       if (name === 'match') game.updateUI();
-      if (name === 'shop') { renderGachaPoolPreview(); renderShardShop(); }
+      if (name === 'shop') { renderGachaPoolPreview(); renderShardShop(); renderShopStaffPanel(); }
+      // v2.11
+      if (name === 'storyline') renderStorylineScene();
+      if (name === 'history') renderHistoryScene();
+      if (name === 'data') renderDataCenterScene();
+      if (name === 'wbc') renderWBCScene();
       syncDerivedUI();
     }
 
@@ -672,8 +757,7 @@
         }
       }
 
-      // v1.18 #16：教練卡池介面
-      renderStaffPanel();
+      // v2.11：教練卡池已搬到擴張中心，賽前不再渲染
 
       const abilityText = (player) => player.canPitch() && player.role === 'P'
         ? `球速 ${player.abilities.velocity} / 控球 ${player.abilities.control} / 球威 ${player.abilities.stuff}`
@@ -741,7 +825,7 @@
       `;
     }
 
-    // v1.18 #16：教練卡池 UI 渲染
+    // v2.11 #1：教練卡池 UI 渲染（從賽前移到擴張中心，並修正 roleType / xpBonus 顯示）
     const STAFF_ROLE_LABELS = {
       head: '總教練', pitching: '投手教練', batting: '打擊教練',
       defense: '守備教練', conditioning: '體能教練', baserunning: '跑壘教練'
@@ -756,40 +840,60 @@
     };
     const RARITY_COLOR = { SSR: '#FFC700', SR: '#A78BFA', R: '#60A5FA' };
 
-    function renderStaffPanel() {
-      const actionEl = document.getElementById('pregame-staff-actions');
-      const listEl = document.getElementById('pregame-staff-list');
-      const hiredEl = document.getElementById('pregame-hired-coaches');
+    // v2.11：把 xpBonus 物件顯示成易讀字串
+    function describeXpBonus(xb) {
+      if (!xb || typeof xb !== 'object') return '無';
+      const map = { all: '全體', batting: '打擊', pitching: '投手', defense: '守備', baserunning: '跑壘' };
+      const parts = Object.entries(xb)
+        .filter(([_, v]) => Number.isFinite(v) && v !== 0)
+        .map(([k, v]) => `${map[k] || k} +${v}%`);
+      return parts.length ? parts.join('、') : '無';
+    }
+
+    // v2.11：取得教練類型（roleType）的中文標籤
+    function coachRoleTypeLabel(rt) {
+      const map = { head: '總教練型', pitching: '投手教練型', batting: '打擊教練型', baserunning: '跑壘教練型' };
+      return map[rt] || (rt || '通用');
+    }
+
+    function renderShopStaffPanel() {
+      const actionEl = document.getElementById('shop-staff-actions');
+      const listEl = document.getElementById('shop-staff-list');
+      const hiredEl = document.getElementById('shop-hired-coaches');
       if (!actionEl || !listEl || !hiredEl) return;
 
-      const drawCost = 300;
+      const drawCost = 200;
       actionEl.innerHTML = `
         <button class="control-button primary" type="button" onclick="drawCoachUI()" ${game.currency < drawCost ? 'disabled' : ''}>
           抽取教練 ${drawCost} 資金
         </button>
-        <span class="pregame-note">當前資金：<strong>${game.currency}</strong>　已聘僱教練：<strong>${(game.hiredCoaches || []).length}</strong></span>
+        <span class="pregame-note">當前資金：<strong>${game.currency}</strong>　已聘僱教練：<strong>${(game.hiredCoaches || []).length}</strong> / ${(window.COACHES_POOL || []).length}</span>
       `;
 
-      const hired = game.hiredCoaches || [];
-      if (!hired.length) {
+      // game.hiredCoaches 儲存的是 id 陣列；要從 COACHES_POOL 撈完整 coach 資料
+      const pool = window.COACHES_POOL || [];
+      const hiredIds = game.hiredCoaches || [];
+      const hiredCoaches = hiredIds.map(id => pool.find(c => c.id === id)).filter(Boolean);
+      if (!hiredCoaches.length) {
         listEl.innerHTML = '<p class="pregame-note">尚未抽到任何教練。點上方按鈕來抽卡。</p>';
       } else {
         listEl.innerHTML = `<h4>已抽到的教練</h4><div class="staff-card-grid">${
-          hired.map(c => {
+          hiredCoaches.map(c => {
             const r = c.rarity || 'R';
-            const xpb = c.xpBonus ? Math.round((c.xpBonus - 1) * 100) : 0;
+            const xpStr = describeXpBonus(c.xpBonus);
             return `
               <article class="staff-card" style="border-color:${RARITY_COLOR[r] || '#60A5FA'}">
                 <header>
                   <span class="staff-rarity" style="background:${RARITY_COLOR[r] || '#60A5FA'}">${r}</span>
                   <h5>${c.name}</h5>
-                  <small>${c.role || '通用'}　XP +${xpb}%</small>
+                  <small>${coachRoleTypeLabel(c.roleType)}　XP 加成：${xpStr}</small>
                 </header>
                 <p class="staff-desc">${c.desc || ''}</p>
+                <p class="staff-specialty">專長：<strong>${c.specialty || '-'}</strong></p>
                 <div class="staff-actions-row">
                   ${Object.keys(STAFF_ROLE_LABELS).map(role => {
                     const isAssigned = game.coachingStaff?.[role]?.id === c.id;
-                    return `<button class="card-btn ${isAssigned ? 'active' : ''}" type="button" onclick="hireCoachUI('${c.id}','${role}')">${isAssigned ? '✓' : '指派為'}${STAFF_ROLE_LABELS[role]}</button>`;
+                    return `<button class="card-btn ${isAssigned ? 'active' : ''}" type="button" onclick="hireCoachUI('${c.id}','${role}')">${isAssigned ? '✓ 已任職' : '指派為'}${STAFF_ROLE_LABELS[role]}</button>`;
                   }).join('')}
                 </div>
               </article>
@@ -798,7 +902,6 @@
         }</div>`;
       }
 
-      // 顯示當前各位置的教練
       const staff = game.coachingStaff || {};
       hiredEl.innerHTML = `<h4>當前教練團</h4><div class="hired-grid">${
         Object.keys(STAFF_ROLE_LABELS).map(role => {
@@ -815,15 +918,24 @@
       }</div>`;
     }
 
+    // 舊呼叫名稱保留相容（賽前頁渲染時若已不再有 panel id 會自動 return）
+    function renderStaffPanel() {
+      renderShopStaffPanel();
+    }
+
     function drawCoachUI() {
       const r = game.drawCoach();
       if (r && r.success) {
         game.saveManager.save(game);
         game.updateUI();
+        // 顯示成功訊息
+        if (r.coach) {
+          alert(`🌟 抽到 ${r.coach.rarity} 教練：${r.coach.name}！\n${r.coach.desc || ''}`);
+        }
       } else if (r && r.message) {
         alert(r.message);
       }
-      renderPregameScene();
+      renderShopStaffPanel();
     }
     function hireCoachUI(coachId, role) {
       const r = game.hireCoach(coachId, role);
@@ -833,18 +945,19 @@
       } else if (r && r.message) {
         alert(r.message);
       }
-      renderPregameScene();
+      renderShopStaffPanel();
     }
     function dismissCoachUI(role) {
       if (game.coachingStaff && game.coachingStaff[role]) {
         game.coachingStaff[role] = null;
         game.saveManager.save(game);
-        renderPregameScene();
+        renderShopStaffPanel();
       }
     }
     window.drawCoachUI = drawCoachUI;
     window.hireCoachUI = hireCoachUI;
     window.dismissCoachUI = dismissCoachUI;
+    window.renderShopStaffPanel = renderShopStaffPanel;
 
     function selectPregamePitcher(index) {
       game.selectStartingPitcher(index);
@@ -1158,10 +1271,403 @@
       showMedicalToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2200);
     }
 
+    // =================================================================
+    // v2.11：主線劇情、歷史戰績、資料中心、WBC 場景 renderer
+    // =================================================================
+
+    function renderStorylineScene() {
+      const el = document.getElementById('storyline-body');
+      if (!el) return;
+      const ST = window.STORYLINE_TEXTS || {};
+      const RULES = window.WBC_QUALIFICATION_RULES || { totalSeasons: 4, startYear: 2026 };
+      const stage = game.storylineStage || 'cpbl_seasons';
+      const myPoints = (game.wbcPointsByTeam && game.wbcPointsByTeam[window.TEAM_NAME]) || 0;
+      const seasonsCompleted = (game.seasonHistory || []).length;
+
+      let body = `
+        <section class="storyline-panel">
+          <h3>${ST.introTitle || ''}</h3>
+          <div class="storyline-paragraph">
+            ${(ST.introBody || []).map(line => `<p>${line}</p>`).join('')}
+          </div>
+        </section>
+        <section class="storyline-panel">
+          <h3>WBC 積分規則</h3>
+          <ul class="storyline-rules">
+            <li>年度第一名：+${RULES.yearRank1Points} 分</li>
+            <li>年度第二名：+${RULES.yearRank2Points} 分</li>
+            <li>上半季冠軍：+${RULES.halfChampPoints} 分</li>
+            <li>下半季冠軍：+${RULES.halfChampPoints} 分</li>
+            <li>年度總冠軍：+${RULES.champPoints} 分</li>
+            <li>年度亞軍：+${RULES.runnerUpPoints} 分</li>
+            <li>季後挑戰賽敗者：+${RULES.thirdPlacePoints} 分</li>
+          </ul>
+          <p class="pregame-note">4 季結束（${RULES.startYear} ~ ${RULES.startYear + RULES.totalSeasons - 1}）後比較總積分，CPBL 7 隊中積分最高者取得 WBC 代表權。</p>
+        </section>
+        <section class="storyline-panel">
+          <h3>目前進度</h3>
+          <div class="storyline-progress">
+            <div><span>當前年份</span><strong>${game.currentYear || RULES.startYear}</strong></div>
+            <div><span>完成賽季</span><strong>${seasonsCompleted} / ${RULES.totalSeasons}</strong></div>
+            <div><span>政大累計 WBC 積分</span><strong>${myPoints}</strong></div>
+            <div><span>劇情階段</span><strong>${
+              { cpbl_seasons: 'CPBL 例行賽積分中', wbc_qualified: '已取得代表權', wbc_eliminated: '未取得代表權（遊戲結束）', wbc_running: 'WBC 進行中', game_over: '遊戲結束' }[stage] || stage
+            }</strong></div>
+          </div>
+        </section>
+      `;
+
+      // 各隊累計積分排名
+      const entries = Object.entries(game.wbcPointsByTeam || {}).sort((a, b) => b[1] - a[1]);
+      if (entries.length) {
+        body += `
+          <section class="storyline-panel">
+            <h3>各隊累計 WBC 積分</h3>
+            <table class="storyline-table">
+              <thead><tr><th>名次</th><th>球隊</th><th>累計分</th></tr></thead>
+              <tbody>${
+                entries.map(([t, p], i) => `<tr ${t === window.TEAM_NAME ? 'class="my-team"' : ''}><td>${i + 1}</td><td>${t}</td><td>${p}</td></tr>`).join('')
+              }</tbody>
+            </table>
+          </section>
+        `;
+      }
+
+      // 階段性提示
+      if (stage === 'wbc_qualified') {
+        body += `<section class="storyline-panel highlight"><h3>🎌 取得 WBC 代表權！</h3><p>到「WBC 賽事」場景開戰。</p><button class="control-button primary" type="button" data-scene="wbc">前往 WBC 賽事</button></section>`;
+      } else if (stage === 'wbc_eliminated') {
+        body += `
+          <section class="storyline-panel highlight failure">
+            <h3>${ST.failureTitle}</h3>
+            ${(ST.failureBody || []).map(p => `<p>${p}</p>`).join('')}
+            <button class="control-button" type="button" onclick="if(confirm('確定要重新開始？所有資料將被清除。')){localStorage.removeItem('baseballGame');location.reload();}">重新開始</button>
+          </section>
+        `;
+      }
+      el.innerHTML = body;
+    }
+    window.renderStorylineScene = renderStorylineScene;
+
+    function renderHistoryScene() {
+      const el = document.getElementById('history-body');
+      if (!el) return;
+      const history = game.seasonHistory || [];
+      if (!history.length) {
+        el.innerHTML = '<p class="pregame-note">尚未完成任何完整賽季，先打完一個賽季才會出現歷史紀錄。</p>';
+        return;
+      }
+      el.innerHTML = `
+        <section class="storyline-panel">
+          <h3>歷年戰績</h3>
+          <table class="storyline-table">
+            <thead>
+              <tr>
+                <th>年份</th><th>戰績</th><th>聯盟名次</th>
+                <th>上半季冠軍</th><th>下半季冠軍</th>
+                <th>總冠軍</th><th>亞軍</th>
+                <th>WBC 積分（當季 / 累計）</th>
+              </tr>
+            </thead>
+            <tbody>${
+              history.map(h => `
+                <tr ${h.year === game.currentYear ? 'class="my-team"' : ''}>
+                  <td>${h.year}</td>
+                  <td>${h.wins}-${h.losses}</td>
+                  <td>${h.finalRank ?? '-'}</td>
+                  <td>${h.firstHalfChamp || '-'}</td>
+                  <td>${h.secondHalfChamp || '-'}</td>
+                  <td>${h.playoffChampion || '-'}</td>
+                  <td>${h.playoffRunnerUp || '-'}</td>
+                  <td>${h.myWbcPoints} / <strong>${h.cumulativeWbcPoints}</strong></td>
+                </tr>
+              `).join('')
+            }</tbody>
+          </table>
+        </section>
+      `;
+    }
+    window.renderHistoryScene = renderHistoryScene;
+
+    // =================================================================
+    // v2.11 #12：資料中心 — CSV 匯入/匯出
+    // =================================================================
+    function csvEscape(v) {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    }
+    function rowsToCsv(headers, rows) {
+      const head = headers.map(csvEscape).join(',');
+      const body = rows.map(r => headers.map(h => {
+        let v = r[h];
+        if (Array.isArray(v)) v = v.join('|');
+        if (v && typeof v === 'object') v = JSON.stringify(v);
+        return csvEscape(v);
+      }).join(',')).join('\n');
+      return head + '\n' + body;
+    }
+    function parseCsv(text) {
+      const rows = [];
+      let cur = '', row = [], inQuote = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuote) {
+          if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') inQuote = false;
+          else cur += ch;
+        } else {
+          if (ch === '"') inQuote = true;
+          else if (ch === ',') { row.push(cur); cur = ''; }
+          else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(cur); cur = '';
+            if (row.length > 1 || row[0] !== '') rows.push(row);
+            row = [];
+          } else cur += ch;
+        }
+      }
+      if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+      if (!rows.length) return [];
+      const headers = rows[0];
+      return rows.slice(1).map(r => {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
+        return obj;
+      });
+    }
+    function getCurrentDataset(key) {
+      const schema = (window.DATA_SCHEMAS || {})[key];
+      if (!schema) return [];
+      if (schema.target === 'STADIUMS_DATA') {
+        // 物件 → 加 id 列出
+        const obj = window.STADIUMS_DATA || {};
+        return Object.entries(obj).map(([id, v]) => ({ id, ...v }));
+      }
+      const arr = window[schema.target];
+      return Array.isArray(arr) ? arr : [];
+    }
+    function downloadCsvForSchema(key) {
+      const schema = (window.DATA_SCHEMAS || {})[key];
+      if (!schema) return;
+      const rows = getCurrentDataset(key);
+      const csv = rowsToCsv(schema.columns, rows);
+      // 加 BOM 讓 Excel 認 UTF-8
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${schema.target}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importCsvForSchema(key, file) {
+      const schema = (window.DATA_SCHEMAS || {})[key];
+      if (!schema || !file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          let text = String(reader.result || '');
+          if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+          const rows = parseCsv(text);
+          // 把資料寫回 window.（注意只覆蓋當前 session，永久化需另存 localStorage）
+          if (schema.target === 'STADIUMS_DATA') {
+            const obj = {};
+            rows.forEach(r => {
+              if (!r.id) return;
+              const { id, ...rest } = r;
+              // 數值欄位轉成 number
+              ['LF','CF','RF','fenceHeight','altitude','hrFactor','windHelp'].forEach(k => { if (rest[k] !== undefined && rest[k] !== '') rest[k] = Number(rest[k]); });
+              obj[id] = rest;
+            });
+            window.STADIUMS_DATA = obj;
+          } else {
+            // 陣列形式：轉換型別
+            const parsed = rows.map(r => {
+              const obj = { ...r };
+              // preferredPositions: 用 | 分隔
+              if (obj.preferredPositions && typeof obj.preferredPositions === 'string') {
+                obj.preferredPositions = obj.preferredPositions.split('|').filter(Boolean);
+              }
+              // 數字欄位
+              ['avg','obp','slg','ops','opsPlus','hr','sb','kRate','bbRate','errors','era','whip','fip','k9','ip','starts','LF','CF','RF','fenceHeight','altitude','hrFactor','windHelp'].forEach(k => {
+                if (obj[k] !== undefined && obj[k] !== '') obj[k] = Number(obj[k]);
+              });
+              // JSON 欄位
+              ['xpBonus','statBonus'].forEach(k => {
+                if (typeof obj[k] === 'string' && obj[k].trim()) {
+                  try { obj[k] = JSON.parse(obj[k]); } catch (e) {}
+                }
+              });
+              return obj;
+            });
+            window[schema.target] = parsed;
+          }
+          // 永久化到 localStorage（讓下次載入也保留）
+          try {
+            const saved = JSON.parse(localStorage.getItem('dataOverrides') || '{}');
+            saved[schema.target] = window[schema.target];
+            localStorage.setItem('dataOverrides', JSON.stringify(saved));
+          } catch (e) {}
+          alert(`已匯入 ${schema.label}：${rows.length} 列。請重新整理頁面讓設定生效。`);
+        } catch (err) {
+          alert('匯入失敗：' + err.message);
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+    function resetDataOverrides() {
+      if (!confirm('確定要清除所有資料覆寫？這只會清除 CSV 匯入的資料，不影響存檔。')) return;
+      localStorage.removeItem('dataOverrides');
+      alert('已清除。請重新整理頁面。');
+    }
+
+    function renderDataCenterScene() {
+      const el = document.getElementById('data-body');
+      if (!el) return;
+      const schemas = window.DATA_SCHEMAS || {};
+      const keys = Object.keys(schemas);
+      const items = keys.map(key => {
+        const s = schemas[key];
+        const count = getCurrentDataset(key).length;
+        return `
+          <article class="data-card">
+            <header>
+              <h3>${s.label}</h3>
+              <small>目前有 <strong>${count}</strong> 列；對應內部 <code>${s.target}</code></small>
+            </header>
+            <p class="data-note">${s.notes || ''}</p>
+            <p class="data-cols"><strong>欄位順序：</strong> ${s.columns.join(' / ')}</p>
+            <div class="data-actions">
+              <button class="control-button primary" type="button" onclick="downloadCsvForSchema('${key}')">下載 CSV</button>
+              <label class="control-button accent">
+                匯入 CSV
+                <input type="file" accept=".csv,text/csv" hidden onchange="importCsvForSchema('${key}', this.files && this.files[0])">
+              </label>
+            </div>
+          </article>
+        `;
+      }).join('');
+      el.innerHTML = `
+        <section class="storyline-panel">
+          <h3>📋 使用說明</h3>
+          <ul>
+            <li>每張表都可下載為 CSV，用 Excel / Google Sheets / Numbers 開啟、修改後再匯入。</li>
+            <li>CSV 已內含 BOM，Excel 開啟中文時不會亂碼。</li>
+            <li>匯入後的資料會存在瀏覽器 <code>localStorage.dataOverrides</code>，重新整理頁面才會生效（下次也會自動載入覆寫）。</li>
+            <li>陣列欄位（如 preferredPositions）以「<code>|</code>」分隔。物件欄位（如 xpBonus）請填 JSON。</li>
+            <li>不需要 Excel；CSV 是最相容的試算表格式，<strong>不會</strong>對遊戲運作造成不良影響。</li>
+          </ul>
+          <button class="control-button danger" type="button" onclick="resetDataOverrides()">清除所有資料覆寫</button>
+        </section>
+        <div class="data-grid">${items}</div>
+      `;
+    }
+    window.renderDataCenterScene = renderDataCenterScene;
+    window.downloadCsvForSchema = downloadCsvForSchema;
+    window.importCsvForSchema = importCsvForSchema;
+    window.resetDataOverrides = resetDataOverrides;
+
+    // 啟動時嘗試套用 localStorage 中的資料覆寫（在 game.js 載入前要就執行最理想，這裡只是 fallback）
+    (function applyDataOverridesEarly() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('dataOverrides') || '{}');
+        Object.entries(saved).forEach(([target, value]) => {
+          if (value) window[target] = value;
+        });
+      } catch (e) {}
+    })();
+
+    // =================================================================
+    // v2.11 #11：WBC 賽事畫面
+    // =================================================================
+    function renderWBCScene() {
+      const el = document.getElementById('wbc-body');
+      if (!el) return;
+      const ST = window.STORYLINE_TEXTS || {};
+      const stage = game.storylineStage;
+
+      // 還沒取得代表權
+      if (stage !== 'wbc_qualified' && stage !== 'wbc_running') {
+        el.innerHTML = `
+          <section class="storyline-panel">
+            <h3>尚未進入 WBC 階段</h3>
+            <p>必須完成 4 個 CPBL 賽季並累積最高 WBC 積分，才能取得中華隊代表權。</p>
+            <p>當前劇情階段：<strong>${stage || 'CPBL 例行賽進行中'}</strong></p>
+            <button class="control-button primary" type="button" data-scene="storyline">查看主線劇情</button>
+          </section>
+        `;
+        return;
+      }
+
+      // 取得代表權但還沒開賽
+      if (stage === 'wbc_qualified' && !game.wbcBracket) {
+        el.innerHTML = `
+          <section class="storyline-panel">
+            <h3>🎌 中華隊代表權已就位</h3>
+            ${(ST.wbcOpening || []).map(p => `<p>${p}</p>`).join('')}
+            <button class="control-button primary" type="button" onclick="startWBCTournament()">開始 WBC 8 強單淘汰</button>
+          </section>
+        `;
+        return;
+      }
+
+      // WBC 結果已產生
+      const b = game.wbcBracket;
+      if (!b) {
+        el.innerHTML = '<p>WBC 資料尚未產生。</p>';
+        return;
+      }
+      const stageLabel = (g) => `${g.a.name} vs ${g.b.name} → <strong>${g.winner.name}</strong>`;
+      let resultBlock = '';
+      if (b.result === 'champion') {
+        resultBlock = `<section class="storyline-panel highlight"><h3>🏆 中華隊奪冠！</h3>${(ST.wbcChampion || []).map(p => `<p>${p}</p>`).join('')}</section>`;
+      } else if (b.result === 'runnerUp') {
+        resultBlock = `<section class="storyline-panel highlight"><h3>🥈 中華隊獲得亞軍！</h3><p>在冠軍戰中惜敗 ${b.eliminatedBy}。雖然沒有摘冠，但站上世界第二的位置已是台灣棒球史的高光時刻。</p></section>`;
+      } else {
+        const text = (ST.wbcDefeated || []).map(p => p.replace('{stage}', b.eliminatedStage || '').replace('{opp}', b.eliminatedBy || '')).join(' ');
+        resultBlock = `<section class="storyline-panel highlight failure"><h3>WBC 之旅結束</h3><p>${text}</p></section>`;
+      }
+      el.innerHTML = `
+        ${resultBlock}
+        <section class="storyline-panel">
+          <h3>八強</h3>
+          <ul class="wbc-bracket-list">${b.quarterfinals.map(g => `<li>${stageLabel(g)}</li>`).join('')}</ul>
+        </section>
+        <section class="storyline-panel">
+          <h3>四強</h3>
+          <ul class="wbc-bracket-list">${b.semifinals.map(g => `<li>${stageLabel(g)}</li>`).join('')}</ul>
+        </section>
+        ${b.thirdPlace ? `<section class="storyline-panel"><h3>季軍戰</h3><ul class="wbc-bracket-list"><li>${stageLabel(b.thirdPlace)}</li></ul></section>` : ''}
+        ${b.final ? `<section class="storyline-panel"><h3>冠軍戰</h3><ul class="wbc-bracket-list"><li>${stageLabel(b.final)}</li></ul></section>` : ''}
+      `;
+    }
+    window.renderWBCScene = renderWBCScene;
+
+    function startWBCTournament() {
+      game.runWBCTournament();
+      renderWBCScene();
+    }
+    window.startWBCTournament = startWBCTournament;
+
+    // 在劇情結束時呼叫對應結算
+    window.showStorylineEnding = function(stage) {
+      // 切到劇情或 WBC 畫面
+      if (stage === 'wbc_qualified') {
+        changeScene('wbc');
+      } else if (stage === 'wbc_eliminated') {
+        changeScene('storyline');
+      }
+    };
+
     game.updateUI();
     renderGachaPoolPreview();
     renderShardShop();
     renderPregameScene();
+    renderShopStaffPanel();
   </script>
 </body>
 </html>
