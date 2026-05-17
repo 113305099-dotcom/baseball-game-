@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>政大棒球 — 投球視角預覽 (Phase 1)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 12px;
+    background: #0a0e1a;
+    color: #e5edf7;
+    font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    color: #fbbf24;
+  }
+  .sub {
+    font-size: 12px;
+    color: #9aa9bc;
+    margin-bottom: 14px;
+  }
+  .canvas-box {
+    position: relative;
+    width: 100%;
+    height: 540px;
+    background: #08101f;
+    border: 2px solid rgba(74,222,128,0.3);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px;
+    background: #111827;
+    border-radius: 6px;
+  }
+  .controls button, .controls select {
+    padding: 6px 12px;
+    background: #1f2937;
+    color: #e5edf7;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .controls button:hover { background: #2a3441; }
+  .controls .active { background: #4ade80; color: #0a0e1a; font-weight: 700; }
+  .label { color: #9aa9bc; font-size: 12px; padding: 6px 4px; }
+  .note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(74,222,128,0.08);
+    border-left: 3px solid #4ade80;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .note b { color: #fbbf24; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>政大棒球 — 投打對決畫面預覽（Phase 1：投球視角）</h1>
+  <div class="sub">參考圖：ui_pitching_defense_approved_v1.png ／ 規則書 §11.9.1、§11.11</div>
+
+  <div class="canvas-box">
+    <div id="battle-canvas-container" style="position:absolute;inset:0;"></div>
+  </div>
+
+  <div class="controls">
+    <span class="label">視角：</span>
+    <button data-view="pitching" class="active">投球視角 (Phase 1)</button>
+    <button data-view="batting">打擊視角 (Phase 2)</button>
+    <button data-view="fielding">守備俯視 (Phase 3)</button>
+
+    <span class="label" style="margin-left: 20px;">模擬投球：</span>
+    <button data-pitch="strike">好球</button>
+    <button data-pitch="ball">壞球（外角）</button>
+    <button data-pitch="swing_miss">揮空</button>
+    <button data-pitch="in_play">擊中</button>
+  </div>
+
+  <div class="note">
+    <b>Phase 1 重點：</b>投球視角已套用粗黑外框、Q版頭大像素角色、看台像素群眾、外野廣告板、單一好球帶框（依規則書 v2.3 取消 3x3 隔線）。<br>
+    <b>請檢查：</b>(1) 投手前景大、捕手+裁判+打者中景小是否清楚？(2) 好球帶位置是否在本壘正上方？(3) 像素風是否夠到位？<br>
+    <b>還沒做：</b>打擊視角與守備俯視只放了「可運作」的骨架，等 Phase 1 你 OK 後才細修。
+  </div>
+</div>
+
+<script>
+// ── Mock 一個簡化的 game 物件 ──
+const mockGame = {
+  currentHalf: 'top',
+  pitcher: { uniformNo: 18, name: '陳冠廷' },
+  batter:  { uniformNo: 7,  name: '陳晨威' },
+  lastPitchContext: null,
+  lastInPlayContext: null,
+  updateUI: function(){}, // BattleScene 會 hook 這個
+  getCurrentMatchup: function() { return { pitcher: this.pitcher, batter: this.batter }; }
+};
+</script>
+
+<!-- 直接 inline battle-scene.js -->
+<script src="./battle-scene.js"></script>
+
+<script>
+// ── 啟動 BattleScene ──
+const scene = new BattleScene();
+scene.attach('battle-canvas-container', mockGame);
+
+// ── 視角切換按鈕 ──
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    scene._view = btn.dataset.view;
+    scene._draw();
+  };
+});
+
+// ── 模擬投球 ──
+document.querySelectorAll('[data-pitch]').forEach(btn => {
+  btn.onclick = () => {
+    const kind = btn.dataset.pitch;
+    let ctx;
+    if (kind === 'strike') {
+      ctx = { pitchOutcome: 'called_strike', isStrike: true, didSwing: false,
+              finalPosition: { x: 5, y: -3 } };
+    } else if (kind === 'ball') {
+      ctx = { pitchOutcome: 'ball', isStrike: false, didSwing: false,
+              finalPosition: { x: -35, y: 10 } };
+    } else if (kind === 'swing_miss') {
+      ctx = { pitchOutcome: 'swing_miss', isStrike: true, didSwing: true,
+              finalPosition: { x: -10, y: -15 } };
+    } else if (kind === 'in_play') {
+      ctx = { pitchOutcome: 'in_play', isStrike: true, didSwing: true,
+              finalPosition: { x: 0, y: 0 } };
+    }
+    mockGame.lastPitchContext = ctx;
+    scene._lastCtx = null; // force re-detect
+    scene._onGameUpdate();
+  };
+});
+</script>
+</body>
+</html>

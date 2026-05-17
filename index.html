@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
@@ -153,17 +153,79 @@
 
         <section id="game-tab" class="scene" aria-labelledby="match-title">
           <div id="diamond-container" class="baseball-diamond"></div>
-          <div class="scene-header">
-            <div>
-              <p class="eyebrow">Live Match</p>
-              <h2 id="match-title">進入比賽</h2>
-            </div>
-            <button class="back-button" type="button" data-scene="lobby">返回大廳</button>
-          </div>
 
-          <div class="match-grid">
-            <section class="scoreboard-panel" aria-label="比賽資訊">
-              <div id="classic-scoreboard" class="classic-scoreboard" aria-label="像素記分板">
+          <!-- ═══ 比賽主場景（2欄：畫面 | 控制） ══════════════════════════════ -->
+          <div class="match-arena">
+
+            <!-- 左：主視覺畫面（BattleScene Canvas） -->
+            <div class="arena-canvas-col">
+              <div class="arena-topbar">
+                <div class="arena-topbar-left">
+                  <button class="back-button back-sm" type="button" data-scene="lobby">← 返回</button>
+                  <span class="arena-label" id="match-title" aria-label="match-title">進入比賽</span>
+                </div>
+                <div class="arena-topbar-center" id="arena-count-display">
+                  <span class="count-chip"><label>局</label><strong><span id="inning">1</span><span id="half" class="half-chip">下</span></strong></span>
+                  <span class="count-chip ball-chip"><label>B</label><strong id="balls">0</strong></span>
+                  <span class="count-chip strike-chip"><label>S</label><strong id="strikes">0</strong></span>
+                  <span class="count-chip out-chip"><label>O</label><strong id="outs">0</strong></span>
+                  <span class="count-chip runner-chip"><label>壘</label><strong id="runners">無</strong></span>
+                </div>
+                <div class="arena-topbar-right">
+                  <span id="score-chip" class="score-chip">
+                    政大 <strong id="score-player">0</strong> — <strong id="score-opponent">0</strong> 對手
+                  </span>
+                </div>
+              </div>
+
+              <!-- 主 Canvas（BattleScene） -->
+              <div id="battle-canvas-container" class="battle-canvas-wrap">
+                <!-- BattleScene 自動注入 canvas -->
+              </div>
+
+              <!-- 本壘板後方壘包狀態（小型 diamond SVG） -->
+              <div class="arena-diamond-mini">
+                <svg class="diamond-svg" viewBox="0 0 120 110">
+                  <polygon points="60,6 110,55 60,104 10,55" fill="#14532d" stroke="rgba(74,222,128,0.55)" stroke-width="1.5"/>
+                  <rect id="base-second" x="52" y="14" width="16" height="14" rx="2" class="base base-empty"/>
+                  <rect id="base-first"  x="88" y="46" width="16" height="14" rx="2" class="base base-empty"/>
+                  <rect id="base-third"  x="16" y="46" width="16" height="14" rx="2" class="base base-empty"/>
+                  <circle cx="60" cy="84" r="5" fill="#d4c4a0" opacity="0.8"/>
+                </svg>
+              </div>
+
+              <!-- 球場熱度 + 天氣 + 賽季事件（底部小列） -->
+              <div class="arena-bottom-bar">
+                <span>🌤 <strong id="weather">晴天</strong></span>
+                <span>♨ 熱度 <strong><span id="crowd-energy">50</span>%</strong></span>
+                <span id="season-event" class="season-event-short">開幕戰</span>
+                <span id="stadium-info" class="stadium-info-short"></span>
+              </div>
+
+              <!-- 即時轉播日誌（場景內緊湊版） -->
+              <section class="arena-log" aria-label="實況轉播">
+                <div id="play-log" class="play-log arena-play-log"></div>
+              </section>
+            </div><!-- /arena-canvas-col -->
+
+            <!-- 右：控制面板 -->
+            <div class="arena-controls-col">
+
+              <!-- 比賽資訊（精簡） -->
+              <div class="arena-matchup-bar">
+                <div><span class="matchup-lbl">攻守</span><strong id="matchup-text">政大棒球守備</strong></div>
+                <div><span class="matchup-lbl">投手</span><strong id="current-pitcher">-</strong></div>
+                <div><span class="matchup-lbl">打者</span><strong id="current-batter">-</strong></div>
+                <div><span class="matchup-lbl">球速</span><strong id="last-pitch-speed">-</strong></div>
+                <div><span class="matchup-lbl">打策</span><strong id="batting-config">-</strong></div>
+                <div><span class="matchup-lbl">投策</span><strong id="pitch-config">-</strong></div>
+              </div>
+
+              <!-- 投手體力 -->
+              <div id="pitcher-stamina" class="pitcher-stamina arena-stamina"></div>
+
+              <!-- 記分板（古典款，側欄版） -->
+              <div id="classic-scoreboard" class="classic-scoreboard arena-scoreboard" aria-label="像素記分板">
                 <div class="scoreboard-clock" aria-hidden="true">
                   <span class="clock-hand hour"></span>
                   <span class="clock-hand minute"></span>
@@ -174,9 +236,9 @@
                   <div><span>STRIKE</span><strong id="board-strike">0</strong></div>
                   <div><span>OUT</span><strong id="board-out">0</strong></div>
                 </div>
-                <div class="scoreboard-lines" role="table" aria-label="逐局比分">
+                <div class="scoreboard-lines" role="table">
                   <div class="board-row board-head" role="row">
-                    <span>INNING</span><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>R</b><b>H</b><b>E</b>
+                    <span>INI</span><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>R</b><b>H</b><b>E</b>
                   </div>
                   <div class="board-row" role="row">
                     <span id="board-visitor-name">VISITOR</span>
@@ -190,116 +252,157 @@
                   </div>
                 </div>
               </div>
-              <div class="score-row">
-                <div>
-                  <span>政大棒球</span>
-                  <strong id="score-player">0</strong>
-                </div>
-                <div>
-                  <span>對手</span>
-                  <strong id="score-opponent">0</strong>
+
+              <!-- 魔力 + 戰術 -->
+              <div class="arena-misc-row">
+                <span>💎 魔力 <strong id="mana">100</strong></span>
+                <span>🎯 <strong id="current-tactic">正常</strong></span>
+              </div>
+
+              <!-- 主操作按鈕 -->
+              <div class="arena-primary-btns">
+                <button id="normal-pitch" class="control-button primary control-button-main" type="button">
+                  <span class="btn-label">投球</span>
+                  <span class="btn-sub" id="pitch-action-sub">普通</span>
+                </button>
+                <button id="magic-pitch" class="control-button danger control-button-main" type="button">
+                  <span class="btn-label">燃燒</span>
+                  <span class="btn-sub">生命</span>
+                </button>
+                <div class="arena-secondary-btns">
+                  <button id="steal-base"       class="control-button accent"   type="button">盜壘</button>
+                  <button id="pickoff"           class="control-button warning"  type="button">牽制</button>
+                  <button id="baserunning-mode"  class="control-button ghost"    type="button">跑壘</button>
+                  <button id="auto-toggle"       class="control-button"          type="button">自動</button>
+                  <button id="toggle-weather"    class="control-button ghost"    type="button">天氣</button>
+                  <button id="auto-sim"          class="control-button"          type="button">全場</button>
                 </div>
               </div>
-              <div class="strategy-grid" aria-label="打席戰術">
-                <div class="strategy-group" id="strategy-group-offense">
-                  <span>進攻策略（我方打擊時）</span>
-                  <div class="strategy-buttons">
-                    <button type="button" data-offense-plan="patient" title="等球：選球 +10、巧打 +2、長打 -3、揮棒慾望 -12%。保送多、出局少，但長打也少。對控球差的投手最猛。">等球</button>
-                    <button type="button" data-offense-plan="normal" title="普通：無加成，平衡型打擊。">普通</button>
-                    <button type="button" data-offense-plan="aggressive" title="積極：長打 +6、巧打 -2、選球 -6、揮棒慾望 +12%。全壘打與長打機率上升，但三振與壞球追打增加。落後想搶分時用。">積極</button>
+
+              <!-- 攻守對決面板 -->
+              <div class="duel-panels arena-duel-panels" aria-label="投打對決操作面板">
+
+            <!-- ❶ 守備面板（我方投球） -->
+            <section class="duel-panel panel-defense" id="panel-defense" aria-labelledby="panel-defense-title">
+              <button class="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-defense-body">
+                <span id="panel-defense-title" class="panel-title">
+                  <span class="panel-icon">⚾</span>守備配球
+                </span>
+                <span class="panel-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="panel-body" id="panel-defense-body">
+                <div class="ctrl-group">
+                  <span class="ctrl-label">投球計畫</span>
+                  <div class="ctrl-chips">
+                    <button type="button" data-pitch-plan="fastball" title="速球強攻：球速 +5、變化 -2。">速球</button>
+                    <button type="button" data-pitch-plan="balanced" title="均衡配球：無加成，平衡型配球。">混合</button>
+                    <button type="button" data-pitch-plan="breaking" title="變化球誘騙：變化 +7、控球 -3。">變化</button>
+                    <button type="button" data-pitch-plan="waste"    title="引誘出棒：控球 -6、對手揮棒率 +8%。">引誘</button>
                   </div>
                 </div>
-                <div class="strategy-group" id="strategy-group-defense">
-                  <span>投球策略（我方守備時）</span>
-                  <div class="strategy-buttons">
-                    <button type="button" data-pitch-plan="fastball" title="速球：球速 +5、變化 -2、好球率 +4%、長打風險 +5%。適合搶 K，但會被強打者打爆。">速球</button>
-                    <button type="button" data-pitch-plan="balanced" title="混合：無加成，平衡型配球。">混合</button>
-                    <button type="button" data-pitch-plan="breaking" title="變化：變化球 +7、控球 -3、好球率 -3%、長打風險 -4%。適合對付揮棒積極對手，三振率上升但壞球也多。">變化</button>
-                    <button type="button" data-pitch-plan="waste" title="引誘：控球 -6、好球率 -13%、對手揮棒率 +8%、長打風險 -3%。誘騙打者出棒，但容易投出保送。">引誘</button>
+                <div class="ctrl-group">
+                  <span class="ctrl-label">瞄準位置 <small class="ctrl-hint">中間框＝好球帶</small></span>
+                  <div class="aim-grid-wrap">
+                    <div class="zone-grid zone-grid-5" id="strategy-group-pitch-aim">
+                      <button type="button" data-pitch-aim="0"  class="aim-outer"></button><button type="button" data-pitch-aim="1"  class="aim-outer"></button><button type="button" data-pitch-aim="2"  class="aim-outer"></button><button type="button" data-pitch-aim="3"  class="aim-outer"></button><button type="button" data-pitch-aim="4"  class="aim-outer"></button>
+                      <button type="button" data-pitch-aim="5"  class="aim-outer"></button><button type="button" data-pitch-aim="6"  class="aim-strike"></button><button type="button" data-pitch-aim="7"  class="aim-strike"></button><button type="button" data-pitch-aim="8"  class="aim-strike"></button><button type="button" data-pitch-aim="9"  class="aim-outer"></button>
+                      <button type="button" data-pitch-aim="10" class="aim-outer"></button><button type="button" data-pitch-aim="11" class="aim-strike"></button><button type="button" data-pitch-aim="12" class="aim-strike aim-center">◎</button><button type="button" data-pitch-aim="13" class="aim-strike"></button><button type="button" data-pitch-aim="14" class="aim-outer"></button>
+                      <button type="button" data-pitch-aim="15" class="aim-outer"></button><button type="button" data-pitch-aim="16" class="aim-strike"></button><button type="button" data-pitch-aim="17" class="aim-strike"></button><button type="button" data-pitch-aim="18" class="aim-strike"></button><button type="button" data-pitch-aim="19" class="aim-outer"></button>
+                      <button type="button" data-pitch-aim="20" class="aim-outer"></button><button type="button" data-pitch-aim="21" class="aim-outer"></button><button type="button" data-pitch-aim="22" class="aim-outer"></button><button type="button" data-pitch-aim="23" class="aim-outer"></button><button type="button" data-pitch-aim="24" class="aim-outer"></button>
+                    </div>
+                    <div class="aim-axis"><span>外角</span><span>內角</span></div>
+                  </div>
+                </div>
+                <div class="ctrl-group" id="strategy-group-pitch-effort">
+                  <span class="ctrl-label">出力檔位</span>
+                  <div class="ctrl-chips ctrl-chips-effort">
+                    <button type="button" data-pitch-effort="full"   title="全力：球速最高，消耗體力較多。">全力 🔥</button>
+                    <button type="button" data-pitch-effort="normal" title="普通：標準消耗，均衡使用。">普通</button>
+                    <button type="button" data-pitch-effort="easy"   title="輕鬆：球速較低，體力消耗少。">輕鬆 💧</button>
                   </div>
                 </div>
               </div>
-              <div class="control-row" aria-label="比賽操作">
-                <button id="normal-pitch" class="control-button primary" type="button">正常投球</button>
-                <button id="magic-pitch" class="control-button danger" type="button">燃燒生命</button>
-                <button id="steal-base" class="control-button accent" type="button">盜壘</button>
-                <button id="pickoff" class="control-button warning" type="button">牽制</button>
-                <button id="baserunning-mode" class="control-button ghost" type="button">跑壘：普通</button>
-                <button id="auto-toggle" class="control-button" type="button">全場自動</button>
-                <button id="toggle-weather" class="control-button ghost" type="button">切換天氣</button>
+            </section>
+
+            <!-- ❷ 進攻面板（我方打擊） -->
+            <section class="duel-panel panel-offense" id="panel-offense" aria-labelledby="panel-offense-title">
+              <button class="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-offense-body">
+                <span id="panel-offense-title" class="panel-title">
+                  <span class="panel-icon">🏏</span>進攻打擊
+                </span>
+                <span class="panel-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="panel-body" id="panel-offense-body">
+                <div class="ctrl-group" id="strategy-group-batting-advanced">
+                  <span class="ctrl-label">打擊策略</span>
+                  <div class="ctrl-chips ctrl-chips-strategy">
+                    <button type="button" data-batting-strategy="standard"  title="標準：平衡型，無加成。">標準</button>
+                    <button type="button" data-batting-strategy="power"     title="強力揮擊：長打 +10、巧打 -8。">強力</button>
+                    <button type="button" data-batting-strategy="tightZone" title="縮小好球帶：長打 +8、巧打 +3。">甜蜜點</button>
+                    <button type="button" data-batting-strategy="protect"   title="保護好球帶：巧打 +8、長打 -8。">保護</button>
+                    <button type="button" data-batting-strategy="patient"   title="耐心選球：選球 +8。">耐心</button>
+                    <button type="button" data-batting-strategy="aggressive"title="積極攻擊：長打 +4、選球 -5。">積極</button>
+                  </div>
+                </div>
+                <div class="ctrl-group" id="strategy-group-target-zone">
+                  <span class="ctrl-label">目標九宮格 <small class="ctrl-hint">預設要打哪個角落</small></span>
+                  <div class="zone-grid-wrap">
+                    <div class="zone-grid zone-grid-3 zone-grid-labeled">
+                      <button type="button" data-target-zone="0" title="左上角（外角高）">↖</button>
+                      <button type="button" data-target-zone="1" title="正上方（高球）">↑</button>
+                      <button type="button" data-target-zone="2" title="右上角（內角高）">↗</button>
+                      <button type="button" data-target-zone="3" title="左中（外角中）">←</button>
+                      <button type="button" data-target-zone="4" title="紅中（正中央）" class="zone-center">◎</button>
+                      <button type="button" data-target-zone="5" title="右中（內角中）">→</button>
+                      <button type="button" data-target-zone="6" title="左下角（外角低）">↙</button>
+                      <button type="button" data-target-zone="7" title="正下方（低球）">↓</button>
+                      <button type="button" data-target-zone="8" title="右下角（內角低）">↘</button>
+                    </div>
+                    <div class="zone-axis-h"><span>外角</span><span>內角</span></div>
+                  </div>
+                </div>
+                <div class="ctrl-group" id="strategy-group-velocity-lock">
+                  <span class="ctrl-label">鎖定球速 <small class="ctrl-hint">猜對 +8 巧打，猜錯 -14</small></span>
+                  <div class="ctrl-chips ctrl-chips-lock">
+                    <button type="button" data-velocity-lock="fast" title="鎖快速球">鎖快 ⚡</button>
+                    <button type="button" data-velocity-lock="none" title="不鎖定">不鎖</button>
+                    <button type="button" data-velocity-lock="slow" title="鎖慢速球">鎖慢 🌀</button>
+                  </div>
+                </div>
               </div>
-              <div class="count-grid">
-                <div><span>局</span><strong><span id="inning">1</span> <span id="half">下半局</span></strong></div>
-                <div><span>B</span><strong id="balls">0</strong></div>
-                <div><span>S</span><strong id="strikes">0</strong></div>
-                <div><span>O</span><strong id="outs">0</strong></div>
-                <div><span>壘上</span><strong id="runners">無</strong></div>
-                <div><span>天氣</span><strong id="weather">晴天</strong></div>
-                <div><span>魔力</span><strong id="mana">100</strong></div>
-                <div><span>戰術</span><strong id="current-tactic">正常</strong></div>
-              </div>
-              <div class="live-panel">
-                <div>
-                  <span>攻守</span>
-                  <strong id="matchup-text">政大棒球守備</strong>
+            </section>
+
+              </div><!-- /arena-duel-panels -->
+
+              <!-- 打序側欄（攻守分頁） -->
+              <div class="arena-lineup-tabs">
+                <div class="match-tab-bar" role="tablist">
+                  <button id="match-tab-offense" class="match-tab-btn active" type="button" role="tab" data-match-tab="offense">進攻</button>
+                  <button id="match-tab-defense" class="match-tab-btn" type="button" role="tab" data-match-tab="defense">守備</button>
                 </div>
-                <div>
-                  <span>投手</span>
-                  <strong id="current-pitcher">-</strong>
+                <!-- 進攻：打者 viz + 打序 -->
+                <div class="match-tab-content" data-match-pane="offense">
+                  <div id="batter-viz-container" class="arena-viz-sm"></div>
+                  <div id="player-lineup" class="arena-lineup-list"></div>
+                  <div id="upcoming-batters" class="arena-upcoming"></div>
                 </div>
-                <div>
-                  <span>打者</span>
-                  <strong id="current-batter">-</strong>
-                </div>
-                <div>
-                  <span>球場熱度</span>
-                  <strong><span id="crowd-energy">50</span>%</strong>
-                </div>
-                <div>
-                  <span>用球速</span>
-                  <strong id="last-pitch-speed">-</strong>
+                <!-- 守備：投球 viz + 對手打序 + 牛棚 -->
+                <div class="match-tab-content" data-match-pane="defense" hidden>
+                  <div id="pitch-viz-container" class="arena-viz-sm"></div>
+                  <div id="opponent-lineup" class="arena-lineup-list"></div>
+                  <div id="bullpen" class="arena-bullpen"></div>
                 </div>
               </div>
-              <div id="stadium-info" class="stadium-info-bar"></div>
-              <div class="season-event-bar">
-                <span>賽季事件</span>
-                <strong id="season-event">尚無事件</strong>
-              </div>
-              <div id="pitcher-stamina" class="pitcher-stamina"></div>
-              <div class="spellbook">
+
+              <!-- 戰術卡片 -->
+              <div class="spellbook arena-spellbook">
                 <h3>戰術卡片</h3>
                 <div id="cards" class="card-hand"></div>
               </div>
-            </section>
 
-            <section class="log-panel" aria-label="實況轉播">
-              <h3>實況轉播</h3>
-              <div id="play-log" class="play-log"></div>
-            </section>
+            </div><!-- /arena-controls-col -->
+          </div><!-- /match-arena -->
 
-            <aside class="match-side" aria-label="對手資訊">
-              <div class="match-tab-bar" role="tablist" aria-label="比賽資訊分頁">
-                <button id="match-tab-offense" class="match-tab-btn active" type="button" role="tab" data-match-tab="offense">進攻</button>
-                <button id="match-tab-defense" class="match-tab-btn" type="button" role="tab" data-match-tab="defense">守備</button>
-              </div>
-              <div class="side-panel match-tab-content" data-match-pane="offense">
-                <h3>我方打序（當前 + 後兩棒）</h3>
-                <div id="player-lineup"></div>
-              </div>
-              <div class="side-panel match-tab-content" data-match-pane="offense">
-                <h3>下一輪打者</h3>
-                <div id="upcoming-batters"></div>
-              </div>
-              <div class="side-panel match-tab-content" data-match-pane="defense" hidden>
-                <h3>對手打序（當前 + 後兩棒）</h3>
-                <div id="opponent-lineup"></div>
-              </div>
-              <div class="side-panel match-tab-content" data-match-pane="defense" hidden>
-                <h3>牛棚</h3>
-                <div id="bullpen"></div>
-              </div>
-            </aside>
-          </div>
         </section>
 
         <section id="roster-tab" class="scene" aria-labelledby="roster-title">
@@ -482,7 +585,20 @@
   </script>
   <script src="art-assets/production/portraits/portrait-redrawn-manifest.js" onerror="this.remove()"></script>
   <script src="art-assets/production/portraits/portrait-manifest.js" onerror="this.remove()"></script>
+  <script src="engine.js"></script>
+  <script src="pitch-engine.js"></script>
+  <script src="fielding-engine.js"></script>
+  <script src="baserunning-engine.js"></script>
+  <script src="defense-state-builder.js"></script>
+  <script src="pitch-result-applier.js"></script>
+  <script src="in-play-result-applier.js"></script>
+  <script src="game-renderer-modules.js"></script>
+  <script src="game-renderer.js"></script>
   <script src="game.js"></script>
+  <script src="pitch-visualizer.js"></script>
+  <script src="batter-visualizer.js"></script>
+  <script src="battle-scene.js"></script>
+  <script src="engine-debug-panel.js"></script>
   <script>
     Object.assign(i18n, {
       enterMatch: '進入比賽',
@@ -523,7 +639,13 @@
 
     function mountScene(name) {
       if (name === 'medical') renderMedicalScene();
-      if (name === 'pregame') renderPregameScene();
+      if (name === 'pregame') {
+        // 確保棒次/輪值/守位資料在渲染前已同步
+        if (game && typeof game.normalizeManagementState === 'function') {
+          game.normalizeManagementState();
+        }
+        renderPregameScene();
+      }
       if (name === 'match') game.updateUI();
       if (name === 'shop') { renderGachaPoolPreview(); renderShardShop(); renderShopStaffPanel(); }
       // v2.11
@@ -565,6 +687,31 @@
       const pitchPlan = event.target.closest('[data-pitch-plan]');
       if (pitchPlan) {
         game.setPitchPlan(pitchPlan.dataset.pitchPlan);
+        return;
+      }
+      const battingStrategy = event.target.closest('[data-batting-strategy]');
+      if (battingStrategy) {
+        game.setBattingStrategy(battingStrategy.dataset.battingStrategy);
+        return;
+      }
+      const targetZone = event.target.closest('[data-target-zone]');
+      if (targetZone) {
+        game.setBattingTargetZone(Number(targetZone.dataset.targetZone));
+        return;
+      }
+      const velocityLock = event.target.closest('[data-velocity-lock]');
+      if (velocityLock) {
+        game.setBattingVelocityLock(velocityLock.dataset.velocityLock);
+        return;
+      }
+      const pitchAim = event.target.closest('[data-pitch-aim]');
+      if (pitchAim) {
+        game.setPitchAimCell(Number(pitchAim.dataset.pitchAim));
+        return;
+      }
+      const pitchEffort = event.target.closest('[data-pitch-effort]');
+      if (pitchEffort) {
+        game.setPitchEffort(pitchEffort.dataset.pitchEffort);
         return;
       }
       // v1.18 #18：比賽頁進攻/守備分頁切換
@@ -667,10 +814,30 @@
       document.querySelectorAll('[data-pitch-plan]').forEach((button) => {
         button.classList.toggle('active', button.dataset.pitchPlan === game.pitchPlan);
       });
+      document.querySelectorAll('[data-batting-strategy]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.battingStrategy === game.battingStrategy);
+      });
+      document.querySelectorAll('[data-target-zone]').forEach((button) => {
+        button.classList.toggle('active', Number(button.dataset.targetZone) === Number(game.battingTargetZone));
+      });
+      document.querySelectorAll('[data-velocity-lock]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.velocityLock === game.battingVelocityLock);
+      });
+      document.querySelectorAll('[data-pitch-aim]').forEach((button) => {
+        button.classList.toggle('active', Number(button.dataset.pitchAim) === Number(game.pitchAimCell));
+      });
+      document.querySelectorAll('[data-pitch-effort]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.pitchEffort === game.pitchEffort);
+      });
 
       // v1.18 #18 #1：依攻守狀態高亮對應策略區塊，關閉另一個
       const offenseGroup = document.getElementById('strategy-group-offense');
       const defenseGroup = document.getElementById('strategy-group-defense');
+      const battingAdvancedGroup = document.getElementById('strategy-group-batting-advanced');
+      const targetZoneGroup = document.getElementById('strategy-group-target-zone');
+      const velocityLockGroup = document.getElementById('strategy-group-velocity-lock');
+      const pitchAimGroup = document.getElementById('strategy-group-pitch-aim');
+      const pitchEffortGroup = document.getElementById('strategy-group-pitch-effort');
       const isOffensive = game.currentHalf === 'bottom';
       if (offenseGroup) {
         offenseGroup.classList.toggle('strategy-active', isOffensive);
@@ -681,6 +848,31 @@
         defenseGroup.classList.toggle('strategy-active', !isOffensive);
         defenseGroup.classList.toggle('strategy-inactive', isOffensive);
         defenseGroup.querySelectorAll('button').forEach(btn => btn.disabled = isOffensive);
+      }
+      if (battingAdvancedGroup) {
+        battingAdvancedGroup.classList.toggle('strategy-active', isOffensive);
+        battingAdvancedGroup.classList.toggle('strategy-inactive', !isOffensive);
+        battingAdvancedGroup.querySelectorAll('button').forEach(btn => btn.disabled = !isOffensive);
+      }
+      if (targetZoneGroup) {
+        targetZoneGroup.classList.toggle('strategy-active', isOffensive);
+        targetZoneGroup.classList.toggle('strategy-inactive', !isOffensive);
+        targetZoneGroup.querySelectorAll('button').forEach(btn => btn.disabled = !isOffensive);
+      }
+      if (velocityLockGroup) {
+        velocityLockGroup.classList.toggle('strategy-active', isOffensive);
+        velocityLockGroup.classList.toggle('strategy-inactive', !isOffensive);
+        velocityLockGroup.querySelectorAll('button').forEach(btn => btn.disabled = !isOffensive);
+      }
+      if (pitchAimGroup) {
+        pitchAimGroup.classList.toggle('strategy-active', !isOffensive);
+        pitchAimGroup.classList.toggle('strategy-inactive', isOffensive);
+        pitchAimGroup.querySelectorAll('button').forEach(btn => btn.disabled = isOffensive);
+      }
+      if (pitchEffortGroup) {
+        pitchEffortGroup.classList.toggle('strategy-active', !isOffensive);
+        pitchEffortGroup.classList.toggle('strategy-inactive', isOffensive);
+        pitchEffortGroup.querySelectorAll('button').forEach(btn => btn.disabled = isOffensive);
       }
 
       // v1.18 #10：球場資訊顯示（比賽頁）
@@ -699,8 +891,59 @@
         const type = game.lastPitchType;
         lastPitchSpeedEl.textContent = speed ? `${type || ''} ${speed} km/h` : '-';
       }
+      const battingConfigEl = document.getElementById('batting-config');
+      if (battingConfigEl) {
+        const strategyLabel = {
+          standard: '標準',
+          power: '強力揮擊',
+          tightZone: '縮小好球帶',
+          protect: '保護好球帶',
+          patient: '耐心選球',
+          aggressive: '積極攻擊'
+        }[game.battingStrategy] || '標準';
+        const lockLabel = { fast: '快', slow: '慢', none: '不鎖' }[game.battingVelocityLock] || '不鎖';
+        const zone = Number.isFinite(Number(game.battingTargetZone)) ? Number(game.battingTargetZone) + 1 : 5;
+        battingConfigEl.textContent = `${strategyLabel}｜目標 ${zone}｜鎖速 ${lockLabel}`;
+      }
+      const pitchConfigEl = document.getElementById('pitch-config');
+      if (pitchConfigEl) {
+        const effortLabel = { full: '全力', normal: '普通', easy: '輕鬆' }[game.pitchEffort] || '普通';
+        const aim = Number.isFinite(Number(game.pitchAimCell)) ? Number(game.pitchAimCell) : 12;
+        const row = Math.floor(aim / 5) + 1;
+        const col = (aim % 5) + 1;
+        pitchConfigEl.textContent = `${game.getPitchPlanLabel?.() || '混合配球'}｜出力 ${effortLabel}｜瞄準 ${row}-${col}`;
+      }
 
       // v1.18 #18：自動切換進攻/守備分頁
+      // ── 攻守面板高亮同步（duel-panel v2.0）────────────────────────────
+      const panelDefense = document.getElementById('panel-defense');
+      const panelOffense = document.getElementById('panel-offense');
+      if (panelDefense && panelOffense) {
+        if (isOffensive) {
+          panelOffense.classList.add('strategy-active');
+          panelOffense.classList.remove('strategy-inactive');
+          panelDefense.classList.add('strategy-inactive');
+          panelDefense.classList.remove('strategy-active');
+          const defToggle = panelDefense.querySelector('.panel-toggle');
+          if (defToggle) defToggle.setAttribute('aria-expanded', 'false');
+          const offToggle = panelOffense.querySelector('.panel-toggle');
+          if (offToggle && offToggle.getAttribute('aria-expanded') === 'false') {
+            offToggle.setAttribute('aria-expanded', 'true');
+          }
+        } else {
+          panelDefense.classList.add('strategy-active');
+          panelDefense.classList.remove('strategy-inactive');
+          panelOffense.classList.add('strategy-inactive');
+          panelOffense.classList.remove('strategy-active');
+          const offToggle = panelOffense.querySelector('.panel-toggle');
+          if (offToggle) offToggle.setAttribute('aria-expanded', 'false');
+          const defToggle = panelDefense.querySelector('.panel-toggle');
+          if (defToggle && defToggle.getAttribute('aria-expanded') === 'false') {
+            defToggle.setAttribute('aria-expanded', 'true');
+          }
+        }
+      }
+
       if (currentScene === 'match') autoSwitchMatchTab();
 
       if (currentScene === 'medical') renderMedicalScene();
@@ -776,19 +1019,27 @@
         </div>
       `;
 
-      rotation.innerHTML = `<div class="pregame-button-list">${game.rotationOrder.map((playerIndex, orderIndex) => {
+      const rotationEmpty = !game.rotationOrder.length;
+      rotation.innerHTML = rotationEmpty
+        ? `<p class="pregame-note">尚未分配輪值投手。<button type="button" class="pregame-auto-btn" onclick="game.normalizeManagementState();renderPregameScene()">自動排陣</button></p>`
+        : `<div class="pregame-button-list">${game.rotationOrder.map((playerIndex, orderIndex) => {
         const player = game.roster.players[playerIndex];
+        if (!player) return '';
         const active = orderIndex === game.rotationSlot ? ' active' : '';
         const pitches = player.pitchTypes?.map(pitch => pitch.name).slice(0, 3).join('、') || '球種未明';
         return `<button class="pregame-row${active}" type="button" onclick="selectPregamePitcher(${playerIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>體力 ${Math.round(player.state.stamina)}/${player.maxStamina}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}｜${pitches}</small></button>`;
-      }).join('')}</div><p class="pregame-note">${teamBonus.label}</p>`;
+      }).filter(Boolean).join('')}</div><p class="pregame-note">${teamBonus.label}</p>`;
 
-      lineup.innerHTML = `<div class="pregame-button-list">${game.playerBattingOrder.map((playerIndex, orderIndex) => {
+      const lineupEmpty = !game.playerBattingOrder.length;
+      lineup.innerHTML = lineupEmpty
+        ? `<p class="pregame-note">尚未分配打線。<button type="button" class="pregame-auto-btn" onclick="game.normalizeManagementState();renderPregameScene()">自動排陣</button></p>`
+        : `<div class="pregame-button-list">${game.playerBattingOrder.map((playerIndex, orderIndex) => {
         const player = game.roster.players[playerIndex];
+        if (!player) return '';
         const assigned = game.getAssignedPosition(playerIndex) || 'DH';
         const selected = orderIndex === pregameSelectedLineupSlot ? ' active' : '';
         return `<div class="pregame-row lineup-row${selected}" draggable="true" ondragstart="dragPregameLineup(event, ${orderIndex}, ${playerIndex})" ondragover="event.preventDefault()" ondrop="dropPregameLineup(event, ${orderIndex})" onclick="selectPregameLineupSlot(${orderIndex})"><span>${orderIndex + 1}. ${player.name}</span><small>${POSITION_LABELS[assigned] || assigned}｜調子 ${getConditionLabel(player.condition)}｜${abilityText(player)}</small><div><button type="button" onclick="event.stopPropagation(); cyclePregameDefense(${playerIndex})">守位</button></div></div>`;
-      }).join('')}</div><p class="pregame-note">提示：拖拽棒次列調整打序。</p>`;
+      }).filter(Boolean).join('')}</div><p class="pregame-note">提示：拖拽棒次列調整打序。</p>`;
 
       coaches.innerHTML = `
         <h4>教練團</h4>
@@ -1668,6 +1919,33 @@
     renderShardShop();
     renderPregameScene();
     renderShopStaffPanel();
+
+    // ── 投打視覺化初始化 ───────────────────────────────────────────────
+    // PitchVisualizer（守備分頁）
+    if (typeof PitchVisualizer !== 'undefined') {
+      window._pitchViz = new PitchVisualizer();
+      window._pitchViz.attach('pitch-viz-container', game);
+    }
+    // BatterVisualizer（進攻分頁）
+    if (typeof BatterVisualizer !== 'undefined') {
+      window._batterViz = new BatterVisualizer();
+      window._batterViz.attach('batter-viz-container', game);
+    }
+    // BattleScene（主視覺 Canvas）
+    if (typeof BattleScene !== 'undefined') {
+      window._battleScene = new BattleScene();
+      window._battleScene.attach('battle-canvas-container', game);
+    }
+    // ── duel-panel 收合 toggle ──────────────────────────────────────────
+    document.querySelectorAll('.panel-toggle').forEach(btn => {
+      if (btn.dataset.panelBound) return;
+      btn.addEventListener('click', () => {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!expanded));
+      });
+      btn.dataset.panelBound = 'true';
+    });
+
   </script>
 </body>
 </html>

@@ -767,6 +767,50 @@ h3 {
   background: rgba(22, 101, 52, 0.72);
 }
 
+.strategy-buttons-advanced {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.strategy-buttons-lock,
+.strategy-buttons-effort {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.zone-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.zone-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.zone-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.zone-grid button {
+  min-height: 28px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.zone-grid-5 button {
+  min-height: 22px;
+  padding: 0;
+  font-size: 10px;
+}
+
+.zone-grid button.active {
+  border-color: rgba(74, 222, 128, 0.68);
+  color: #dcfce7;
+  background: rgba(22, 101, 52, 0.72);
+}
+
 .control-button.danger {
   border-color: rgba(239, 68, 68, 0.56);
   background: linear-gradient(180deg, rgba(127, 29, 29, 0.9), rgba(12, 18, 32, 0.94));
@@ -4378,4 +4422,535 @@ h2 {
 .roster-section header p,
 .pregame-note {
   color: #3c2f23;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   duel-panel v2.0  （投打控制面板；從 duel-panel-v2.html 合入）
+   ══════════════════════════════════════════════════════════════════ */
+/* ── 攻守面板容器 ── */
+.duel-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+@media (max-width: 600px) {
+  .duel-panels { grid-template-columns: 1fr; }
+}
+
+/* ── 個別面板 ── */
+.duel-panel {
+  border-radius: 10px;
+  border: 1.5px solid var(--border, #334155);
+  background: var(--surface, #0f172a);
+  overflow: hidden;
+  transition: border-color .18s;
+}
+.panel-defense { border-color: #1e3a5f; }
+.panel-offense { border-color: #3b1f5e; }
+.panel-defense.strategy-active { border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f620; }
+.panel-offense.strategy-active { border-color: #a855f7; box-shadow: 0 0 0 2px #a855f720; }
+.panel-defense.strategy-inactive,
+.panel-offense.strategy-inactive { opacity: .45; pointer-events: none; }
+
+/* ── 面板標題切換按鈕 ── */
+.panel-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 12px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text, #e2e8f0); font-size: .8rem; font-weight: 600;
+  border-bottom: 1px solid var(--border, #334155);
+}
+.panel-title { display: flex; align-items: center; gap: 6px; }
+.panel-icon  { font-size: 1rem; }
+.panel-chevron { font-size: .65rem; transition: transform .22s; }
+.panel-toggle[aria-expanded="false"] .panel-chevron { transform: rotate(-90deg); }
+
+/* 收合時隱藏 body */
+.panel-toggle[aria-expanded="false"] + .panel-body { display: none; }
+
+.panel-body { padding: 8px 10px 10px; }
+
+/* ── 控制組 ── */
+.ctrl-group { margin-bottom: 8px; }
+.ctrl-group:last-child { margin-bottom: 0; }
+.ctrl-label {
+  display: block; font-size: .68rem; color: var(--text-muted, #94a3b8);
+  margin-bottom: 4px; font-weight: 600; letter-spacing: .03em;
+}
+.ctrl-hint {
+  font-size: .6rem; color: var(--text-faint, #64748b);
+  font-weight: 400; margin-left: 6px;
+}
+
+/* ── 通用 chip 按鈕列 ── */
+.ctrl-chips {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.ctrl-chips button {
+  padding: 4px 9px; border-radius: 6px; font-size: .72rem;
+  border: 1.5px solid var(--border, #334155);
+  background: var(--surface-2, #1e293b); color: var(--text, #e2e8f0);
+  cursor: pointer; transition: background .14s, border-color .14s, color .14s;
+  line-height: 1.3;
+}
+.ctrl-chips button:hover {
+  background: var(--surface-3, #334155); border-color: #475569;
+}
+.ctrl-chips button.active,
+.ctrl-chips button[data-pitch-plan].active,
+.ctrl-chips button[data-batting-strategy].active,
+.ctrl-chips button[data-velocity-lock].active,
+.ctrl-chips button[data-pitch-effort].active {
+  background: var(--accent, #3b82f6); border-color: var(--accent, #3b82f6);
+  color: #fff; font-weight: 700;
+}
+.panel-offense .ctrl-chips button.active {
+  background: #7c3aed; border-color: #7c3aed;
+}
+
+/* ── 出力 ── */
+.ctrl-chips-effort button[data-pitch-effort="full"].active   { background: #dc2626; border-color: #dc2626; }
+.ctrl-chips-effort button[data-pitch-effort="easy"].active   { background: #0891b2; border-color: #0891b2; }
+
+/* ── 鎖速 ── */
+.ctrl-chips-lock button[data-velocity-lock="fast"].active { background: #d97706; border-color: #d97706; }
+.ctrl-chips-lock button[data-velocity-lock="slow"].active { background: #0891b2; border-color: #0891b2; }
+
+/* ── 5x5 瞄準格 ── */
+.aim-grid-wrap { display: flex; flex-direction: column; gap: 4px; }
+.zone-grid-5 {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;
+}
+.zone-grid-5 button {
+  aspect-ratio: 1; border-radius: 4px; border: 1px solid #334155;
+  background: #0f172a; cursor: pointer; font-size: .65rem; color: #94a3b8;
+  transition: background .12s, border-color .12s;
+  min-width: 0;
+}
+.zone-grid-5 button:hover { background: #1e293b; border-color: #475569; }
+/* 好球帶格（格 6-8、11-13、16-18）視覺分區 */
+.zone-grid-5 button.aim-strike {
+  background: #1e3a5f; border-color: #2563eb55;
+}
+.zone-grid-5 button.aim-strike:hover { background: #1e3a8f; }
+.zone-grid-5 button.aim-center { font-size: .8rem; color: #93c5fd; font-weight: 700; }
+.zone-grid-5 button.active     { background: #2563eb; border-color: #3b82f6; color: #fff; }
+.zone-grid-5 button.aim-outer.active { background: #7c3aed; border-color: #a78bfa; }
+
+.aim-axis {
+  display: flex; justify-content: space-between;
+  font-size: .6rem; color: #64748b; padding: 0 2px;
+}
+
+/* ── 3x3 目標九宮格 ── */
+.zone-grid-wrap { display: flex; flex-direction: column; gap: 4px; }
+.zone-grid-3 {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+}
+.zone-grid-3 button {
+  aspect-ratio: 1; border-radius: 5px; border: 1.5px solid #334155;
+  background: #1e293b; cursor: pointer; font-size: .9rem; color: #94a3b8;
+  transition: background .12s, border-color .12s;
+  min-width: 0;
+}
+.zone-grid-3 button:hover  { background: #334155; border-color: #475569; }
+.zone-grid-3 button.zone-center { color: #c4b5fd; }
+.zone-grid-3 button.active {
+  background: #7c3aed; border-color: #a78bfa; color: #fff; font-weight: 700;
+}
+.zone-axis-h {
+  display: flex; justify-content: space-between;
+  font-size: .6rem; color: #64748b; padding: 0 2px;
+}
+
+/* ── 主要操作按鈕列 ── */
+.primary-control-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 6px; align-items: center;
+  margin-bottom: 8px;
+}
+@media (max-width: 600px) {
+  .primary-control-row { grid-template-columns: 1fr 1fr; }
+  .control-row-secondary { grid-column: 1 / -1; }
+}
+
+.control-button-main {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 8px 14px; min-width: 64px;
+  border-radius: 10px; border: none; cursor: pointer;
+  font-size: .7rem;
+}
+.control-button-main .btn-label { font-size: .95rem; font-weight: 800; line-height: 1.1; }
+.control-button-main .btn-sub   { font-size: .62rem; opacity: .75; margin-top: 1px; }
+
+.control-row-secondary {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.control-row-secondary .control-button {
+  padding: 5px 8px; font-size: .7rem; flex: 1 1 0;
+}
+/* ════════════════════════════════════════════════════════════
+   match-arena — 2欄佈局（左：Canvas主視覺 | 右：控制面板）
+   ════════════════════════════════════════════════════════════ */
+.match-arena {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* 左欄：Canvas 視覺 */
+.arena-canvas-col {
+  display: flex;
+  flex-direction: column;
+  background: #070c18;
+  overflow: hidden;
+}
+
+/* 右欄：控制面板 */
+.arena-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #0d1525;
+  border-left: 1px solid rgba(148,163,184,0.14);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── 頂部狀態列 ── */
+.arena-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.55);
+  border-bottom: 1px solid rgba(74,222,128,0.18);
+  flex-shrink: 0;
+  min-height: 36px;
+}
+.arena-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arena-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.arena-topbar-right {
+  display: flex;
+  align-items: center;
+}
+.arena-label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: .04em;
+}
+
+/* Count chips (B/S/O/壘) */
+.count-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 6px;
+  padding: 1px 6px;
+  min-width: 28px;
+  line-height: 1.1;
+}
+.count-chip label {
+  font-size: .52rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.count-chip strong {
+  font-size: .82rem;
+  color: #e2e8f0;
+  font-weight: 800;
+}
+.half-chip {
+  font-size: .65rem;
+  color: #4ade80;
+  margin-left: 2px;
+}
+.ball-chip   strong { color: #4ade80; }
+.strike-chip strong { color: #fbbf24; }
+.out-chip    strong { color: #f87171; }
+.runner-chip strong { color: #60a5fa; }
+
+/* Score chip */
+.score-chip {
+  font-size: .78rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 8px;
+  padding: 2px 10px;
+}
+.score-chip strong { color: #fbbf24; font-size: .9rem; }
+
+/* ── BattleScene Canvas 容器 ── */
+.battle-canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #08101f;
+}
+.battle-canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 壘包 mini diamond ── */
+.arena-diamond-mini {
+  flex-shrink: 0;
+  padding: 4px 0 2px;
+  display: flex;
+  justify-content: center;
+}
+.diamond-svg {
+  width: 76px;
+  height: 70px;
+}
+.base {
+  fill: rgba(255,255,255,0.08);
+  stroke: rgba(255,255,255,0.3);
+  stroke-width: 1;
+  transition: fill .2s;
+}
+.base-occupied {
+  fill: #fbbf24 !important;
+  stroke: #f59e0b !important;
+}
+
+/* ── 底部小資訊列 ── */
+.arena-bottom-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 10px;
+  font-size: .66rem;
+  color: #94a3b8;
+  background: rgba(0,0,0,0.4);
+  border-top: 1px solid rgba(148,163,184,0.1);
+}
+.arena-bottom-bar strong { color: #cbd5e1; }
+.season-event-short, .stadium-info-short {
+  color: #64748b;
+  font-size: .6rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 轉播日誌（緊湊版） ── */
+.arena-log {
+  flex-shrink: 0;
+  max-height: 80px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(148,163,184,0.1);
+  background: rgba(0,0,0,0.3);
+}
+.arena-play-log {
+  padding: 4px 10px;
+  font-size: .62rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.arena-play-log p { margin: 0; }
+
+/* ── 右欄：比賽資訊 bar ── */
+.arena-matchup-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: .68rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(148,163,184,0.1);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.arena-matchup-bar div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.matchup-lbl {
+  color: #64748b;
+  font-size: .6rem;
+  min-width: 24px;
+  flex-shrink: 0;
+}
+.arena-matchup-bar strong {
+  color: #e2e8f0;
+  font-size: .72rem;
+}
+
+/* ── 投手體力（側欄版） ── */
+.arena-stamina {
+  font-size: .68rem;
+}
+
+/* ── 記分板（側欄版，縮小） ── */
+.arena-scoreboard {
+  font-size: .6rem;
+}
+.arena-scoreboard .scoreboard-status div {
+  padding: 2px 4px;
+}
+
+/* ── 魔力 + 戰術 ── */
+.arena-misc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .68rem;
+  color: #94a3b8;
+  padding: 2px 4px;
+}
+.arena-misc-row strong { color: #e2e8f0; }
+
+/* ── 主操作按鈕群 ── */
+.arena-primary-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.arena-secondary-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.arena-secondary-btns .control-button {
+  flex: 1 1 0;
+  padding: 5px 6px;
+  font-size: .68rem;
+}
+
+/* ── 攻守對決面板（右欄版） ── */
+.arena-duel-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.arena-duel-panels .duel-panel {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── 打序分頁（右欄） ── */
+.arena-lineup-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.arena-lineup-tabs .match-tab-bar {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-bottom: 4px;
+}
+.arena-lineup-tabs .match-tab-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: .68rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(148,163,184,0.15);
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.arena-lineup-tabs .match-tab-btn.active {
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+}
+.match-tab-content {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.arena-viz-sm {
+  max-height: 140px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.arena-lineup-list { font-size: .68rem; }
+.arena-upcoming    { font-size: .64rem; color: #94a3b8; }
+.arena-bullpen     { font-size: .68rem; }
+
+/* ── 戰術卡片（右欄版） ── */
+.arena-spellbook {
+  flex-shrink: 0;
+}
+.arena-spellbook h3 {
+  font-size: .65rem;
+  color: #64748b;
+  margin: 4px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+/* ── 返回按鈕小版 ── */
+.back-sm {
+  font-size: .65rem;
+  padding: 3px 8px;
+}
+
+/* ── 賽前準備：自動排陣按鈕 ── */
+.pregame-note {
+  color: #94a3b8;
+  font-size: .8rem;
+  padding: 8px 0;
+}
+.pregame-auto-btn {
+  margin-left: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #3b82f6;
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.pregame-auto-btn:hover {
+  background: rgba(59,130,246,0.3);
+}
+
+/* ── Responsive: 窄螢幕折疊為單欄 ── */
+@media (max-width: 768px) {
+  .match-arena {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .arena-canvas-col {
+    height: 55vw;
+    min-height: 260px;
+  }
+  .arena-controls-col {
+    border-left: none;
+    border-top: 1px solid rgba(148,163,184,0.14);
+    max-height: 60vh;
+    overflow-y: auto;
+  }
 }
