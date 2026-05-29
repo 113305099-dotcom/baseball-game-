@@ -35,7 +35,8 @@
       .filter(event => event.type === "throw_start")
       .map(event => {
         const sequence = event.sequence ? `/${event.sequence}` : "";
-        return `${valueText(event.at)} ${event.from}->${event.toBase}${sequence}`;
+        const target = event.toFielder || event.toBase;
+        return `${valueText(event.at)} ${event.from}->${target}${sequence}`;
       })
       .join(" | ") || "-";
   }
@@ -47,10 +48,36 @@
       .join(" | ") || "-";
   }
 
+  function fielderRouteSummary(events = []) {
+    return events
+      .filter(event => event.type === "fielder_start")
+      .map(event => {
+        const role = event.role ? `/${event.role}` : "";
+        const outcome = event.outcome ? `/${event.outcome}` : "";
+        return `${event.fielder}${role}${outcome}->${valueText(event.arrivesAt)}`;
+      })
+      .join(" | ") || "-";
+  }
+
+  function runnerDecisionSummary(decisions = []) {
+    return decisions
+      .filter(decision => decision.action === "send" || decision.action === "hold")
+      .map(decision => `${decision.runnerId}:${decision.action}->${decision.targetBase} p${valueText(decision.chance)}`)
+      .join(" | ") || "-";
+  }
+
+  function slideSummary(events = []) {
+    return events
+      .filter(event => event.type === "runner_slide")
+      .map(event => `${valueText(event.at)} ${event.runner}@${event.base}/${event.slide || "slide"}`)
+      .join(" | ") || "-";
+  }
+
   function snapshot(game = global.game) {
     const pitch = game?.lastPitchContext || {};
     const ip = game?.lastInPlayContext || {};
     const selected = ip.fielding?.selected || null;
+    const primaryAttempt = ip.fielding?.primaryAttempt || null;
     const events = ip.visualTimeline?.events || [];
     return {
       pitch: {
@@ -64,14 +91,23 @@
         hitType: ip.playResult?.hitType || null,
         fielder: selected ? selected.position : null,
         fielderName: selected?.player?.name || null,
+        primaryAttempt: primaryAttempt ? primaryAttempt.position : null,
         ballType: ip.ballInfo?.ballType || null,
         distanceM: ip.ballInfo?.dist_m ?? null,
+        surface: ip.ballInfo?.surface || null,
+        ground: ip.ballInfo?.groundProfile || null,
+        flight: ip.ballInfo?.flightProfile || null,
+        throwDecision: ip.playResult?.throwDecision || null,
+        runnerDecisions: ip.playResult?.advanceResult?.decisions || [],
+        slides: events.filter(event => event.type === "runner_slide"),
+        fielderRoutes: events.filter(event => event.type === "fielder_start"),
         candidates: (ip.fielding?.candidates || []).slice(0, 6).map(candidate => ({
           position: candidate.position,
           score: candidate.successScore,
           routeM: candidate.routeDistanceM,
           marginM: candidate.rangeMarginM,
-          arrivalSec: candidate.arrivalSec
+          arrivalSec: candidate.arrivalSec,
+          ballSpeedKmh: candidate.ballArrivalSpeedKmh ?? null
         })),
         events
       }
@@ -83,6 +119,7 @@
     const pitch = game.lastPitchContext || {};
     const ip = game.lastInPlayContext || {};
     const selected = ip.fielding?.selected || null;
+    const primaryAttempt = ip.fielding?.primaryAttempt || null;
     const events = ip.visualTimeline?.events || [];
     const rows = [
       ["Pitch", valueText(pitch.pitchOutcome)],
@@ -92,9 +129,15 @@
       ["InPlay", valueText(ip.playResult?.code)],
       ["Hit", valueText(ip.playResult?.hitType)],
       ["Fielder", selected ? `${selected.position} ${selected.player?.name || ""}`.trim() : "-"],
+      ["Attempt", primaryAttempt ? `${primaryAttempt.position} ${valueText(primaryAttempt.ballArrivalSpeedKmh)}km/h` : "-"],
       ["Ball", ip.ballInfo ? `${ip.ballInfo.ballType || "-"} ${valueText(ip.ballInfo.dist_m)}m` : "-"],
+      ["Surface", ip.ballInfo?.surface ? `${ip.ballInfo.surface.key} drag ${valueText(ip.ballInfo.surface.airDrag)}` : "-"],
       ["Candidates", candidateSummary(ip.fielding?.candidates)],
+      ["Routes", fielderRouteSummary(events)],
       ["Throws", throwSummary(events)],
+      ["ThrowDecision", ip.playResult?.throwDecision ? `${ip.playResult.throwDecision.targetRunner}->${ip.playResult.throwDecision.targetBase} ${ip.playResult.throwDecision.outcome} m${valueText(ip.playResult.throwDecision.marginSec)}` : "-"],
+      ["RunnerAI", runnerDecisionSummary(ip.playResult?.advanceResult?.decisions)],
+      ["Slides", slideSummary(events)],
       ["RunnerOut", runnerOutSummary(events)],
       ["Timeline", eventSummary(events)]
     ];

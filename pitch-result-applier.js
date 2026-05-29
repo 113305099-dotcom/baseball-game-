@@ -21,7 +21,8 @@
     game.addCommentary(i18n.walk, batter, shadowClone);
     game.resetCount();
     if (battingTeam === "player") call(context.awardPlayerXP, batter, 8, "batting", game);
-    if (battingTeam === "opponent") call(context.awardPlayerXP, pitcher, 3, "pitching", game);
+    // v3.25：我方投手保送對手 → -1 XP（PARAMS.experience.xpPerWalkPitcher）
+    if (battingTeam === "opponent") call(context.awardPlayerXP, pitcher, -1, "pitching", game);
     return finalizePitch(i18n.walk, true, true);
   }
 

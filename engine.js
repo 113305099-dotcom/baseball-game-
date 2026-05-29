@@ -96,6 +96,8 @@
           return game.drawPlayer("local");
         case "game.draw.international":
           return game.drawPlayer("international");
+        case "game.draw.international11":
+          return game.drawInternationalEleven();
         default:
           throw new Error(`Unknown engine action: ${action}`);
       }

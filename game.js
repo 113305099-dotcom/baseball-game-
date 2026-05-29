@@ -161,71 +161,7 @@ class MedicalCenter {
 }
 
 // Commentary Generator Class
-class CommentaryGenerator {
-  constructor() {
-    this.templates = {
-      homeRun: {
-        powerHitter: ['力量打者的棒子一揮，球飛向了遠方！', '令人目眩的本壘打！力量無可匹敵！', '那是一記真正的巨砲！'],
-        default: ['長打出去！球進場外！', '本壘打！這會改變比賽局面！', '飛翔的棒球！絕美的一擊！']
-      },
-      strikeout: {
-        elitePitcher: ['他在角落投球！打者無從招架。', '精準的投球組合！三振出局！', '控球大師的傑作！'],
-        default: ['三振！打者揮空了！', '好球三顆！出局！', '投手贏得這次對決！']
-      },
-      single: {
-        clutchHitter: ['關鍵時刻的安打！團隊需要的一擊！', '面對壓力，他選擇了安全上壘！'],
-        default: ['安打！球飛向外野！', '一壘安打，打者安全上壘！']
-      },
-      double: ['二壘安打！打者冒著生命危險衝向二壘！', '深遠的打擊！二壘安打！'],
-      triple: ['三壘安打！打者全力奔馳！', '深深的外野飛球！打者趕上三壘！'],
-      groundOut: ['地面球被守備隊員處理掉！', '滾地球三振！'],
-      flyOut: ['高飛球被守備隊員接住！出局！', '淺外野飛球，被接住了。'],
-      walk: ['四壞球保送！打者安全上壘！', '投手控制失手，打者獲得保送！'],
-      shadowClone: ['不可思議！影分身做出了超自然的守備！', '魔法守備！雙重身體的威力！']
-    };
-  }
-
-  generateCommentary(outcome, player, cardActive = false) {
-    let template = this.templates[outcome] || {};
-    let text = '';
-
-    if (typeof template === 'object' && !Array.isArray(template)) {
-      // Has trait-based variations
-      const traitKey = this.getTraitKey(player);
-      text = template[traitKey] ? this.randomFromArray(template[traitKey]) : this.randomFromArray(template.default || []);
-    } else if (Array.isArray(template)) {
-      text = this.randomFromArray(template);
-    }
-
-    if (cardActive && outcome === 'flyOut') {
-      text = this.randomFromArray(this.templates.shadowClone);
-    }
-
-    return text;
-  }
-
-  getTraitKey(player) {
-    if (!player || !player.traits) return 'default';
-    if (player.traits.includes(i18n.powerHitter)) return 'powerHitter';
-    if (player.traits.includes(i18n.elitePitcher)) return 'elitePitcher';
-    if (player.traits.includes(i18n.clutchHitter)) return 'clutchHitter';
-    return 'default';
-  }
-
-  randomFromArray(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  generateHeadline(playerScore, opponentScore, mvpPlayer) {
-    if (playerScore > opponentScore) {
-      return `${mvpPlayer.name} 於政治大學棒球隊勝利中大放異彩！ (${playerScore}-${opponentScore})`;
-    } else if (playerScore < opponentScore) {
-      return `${mvpPlayer.name} 的表現不足以阻止敗北。 (${playerScore}-${opponentScore})`;
-    } else {
-      return `戲劇性平局！${mvpPlayer.name} 無法突破僵局。 (${playerScore}-${opponentScore})`;
-    }
-  }
-}
+// CommentaryGenerator 已移至 commentary.js（v3.21）
 
 const PLAYER_DATA_VERSION = 4; // v2.11: 新增 currentYear / seasonHistory / wbcPoints / storylineStage
 
@@ -233,6 +169,68 @@ function clampInt(value, min = 0, max = 99) {
   const numeric = Number.isFinite(Number(value)) ? Number(value) : min;
   return Math.max(min, Math.min(max, Math.round(numeric)));
 }
+
+// v3.25.2：投手體力 5 級狀態
+function getStaminaState(player) {
+  const states = window.GAME_PARAMS?.staminaStates || [
+    { min: 80, key: 'fresh',     label: '龍精虎猛', icon: '🐉', color: '#22c55e', decayMul: 0.50, mods: { velocity:  2, control:  2, breaking:  2 } },
+    { min: 60, key: 'sweating',  label: '微微出汗', icon: '💧', color: '#3b82f6', decayMul: 0.85, mods: { velocity:  0, control:  0, breaking:  0 } },
+    { min: 35, key: 'tiring',    label: '略顯疲憊', icon: '😮‍💨', color: '#facc15', decayMul: 1.20, mods: { velocity: -3, control: -2, breaking: -2 } },
+    { min: 15, key: 'exhausted', label: '累死了',   icon: '😩', color: '#f97316', decayMul: 1.70, mods: { velocity: -8, control: -6, breaking: -4 } },
+    { min:  0, key: 'broken',    label: '懷疑人生', icon: '💀', color: '#ef4444', decayMul: 2.20, mods: { velocity: -15, control: -12, breaking: -10 } }
+  ];
+  const pct = player?.maxStamina ? (player.state.stamina / player.maxStamina) * 100 : 0;
+  for (const s of states) {
+    if (pct >= s.min) return s;
+  }
+  return states[states.length - 1];
+}
+window.getStaminaState = getStaminaState;
+
+// v3.25：能力值字母評級（S 90+, A 80-89, B 70-79, C 60-69, D 50-59, E 0-49）
+function getAbilityGrade(value) {
+  const table = window.GAME_PARAMS?.abilityGrades || [
+    { min: 90, grade: 'S', color: '#ffd700' },
+    { min: 80, grade: 'A', color: '#9b59b6' },
+    { min: 70, grade: 'B', color: '#3498db' },
+    { min: 60, grade: 'C', color: '#27ae60' },
+    { min: 50, grade: 'D', color: '#7f8c8d' },
+    { min: 0,  grade: 'E', color: '#95a5a6' }
+  ];
+  const v = Number(value) || 0;
+  for (const t of table) {
+    if (v >= t.min) return t;
+  }
+  return table[table.length - 1];
+}
+function abilityWithGrade(value) {
+  const v = clampInt(value);
+  const g = getAbilityGrade(v);
+  return `<span class="ability-val">${v}</span><span class="ability-grade grade-${g.grade}" style="background:${g.color}">${g.grade}</span>`;
+}
+window.getAbilityGrade = getAbilityGrade;
+window.abilityWithGrade = abilityWithGrade;
+
+// v3.25：能力說明（給 UI tooltip 用）
+window.ABILITY_DESCRIPTIONS = {
+  '巧打':    '接觸打擊能力。影響進場率（一壘安打、二壘安打）',
+  '長打':    '長打力。影響擊球初速 EV，越高越容易打全壘打',
+  '走力':    '跑壘速度。影響盜壘成功率、推進壘包速度',
+  '守備':    '守備範圍與穩定度。減少失誤、增加接殺',
+  '肩力':    '傳球力量與速度。阻殺跑者的關鍵',
+  '選球':    '辨識好壞球能力。提升選保送、減少追打',
+  '得點圈':  '得點圈表現。壘上有人時 contact 加成',
+  '代打':    '代打能力綜合值（power + 選球 + contact）',
+  '球速':    '球速壓制力。提升球質 stuffScore',
+  '控球':    '控球精準度。減少投球偏差、減少保送',
+  '變化球':  '變化球尾勁。增加揮空率、減少擊出強勁球',
+  '體力':    '一場可投數量。耐久度越高換投越晚',
+  '球威':    '整體球質。直接影響 stuffPenalty 對打者的壓制',
+  '危機處理':'得點圈時的修正。壘上有人時 control 加成',
+  '牽制':    '阻止對手盜壘的能力',
+  '快速出手':'縮短投球週期，減少跑者起跑優勢',
+  '恢復力':  '比賽之間的體力恢復速度'
+};
 
 function createDefaultHeatMap() {
   const heatMap = {};
@@ -604,6 +602,7 @@ class StatMapper {
   }
 
   getBatterAbilities(stats) {
+    if (stats.abilities && stats.abilities.contact != null) return stats.abilities;
     const contact = this.scale(stats.avg, 0.230, 0.330) * 0.75 + this.scale(stats.opsPlus || 100, 80, 190) * 0.25;
     const power = this.scale(stats.slg, 0.300, 0.600) * 0.55 + this.scale(stats.hr, 0, 25) * 0.45;
     const speed = this.scale(stats.sb, 0, 30) * 0.8 + this.positionSpeedBase(stats.position) * 0.2;
@@ -627,6 +626,7 @@ class StatMapper {
   }
 
   getPitcherAbilities(stats) {
+    if (stats.abilities && stats.abilities.velocity != null) return stats.abilities;
     const velocity = this.scale(stats.kRate || 18, 12, 26) * 0.55 + this.scale(stats.k9 || 6, 4, 9) * 0.45;
     const control = this.scale(stats.bbRate || 7, 4, 10, true) * 0.45 + this.scale(stats.whip || 1.2, 0.90, 1.45, true) * 0.55;
     const breaking = this.scale(stats.fip || 3.2, 2.0, 4.2, true) * 0.55 + this.scale(stats.era || 3.2, 1.6, 4.4, true) * 0.45;
@@ -686,8 +686,15 @@ class StatMapper {
       control: abilities.contact,
       speed: abilities.speed
     };
-    const traits = this.inferTraits(stats, abilities);
-    return new Player(
+    const talents = this.inferTalents(stats, abilities);  // v3.25：純顯示天賦
+    const traits = [];  // v3.25：特質只能透過品階解鎖
+    // v3.25.4：特殊投法投手自動標記 armSlot
+    const armSlot = window.GAME_PARAMS?.specialPitcherArmSlot?.[stats.name] || null;
+    if (armSlot) {
+      const armLabel = window.GAME_PARAMS?.armSlotBonus?.[armSlot]?.label;
+      if (armLabel && !talents.includes(armLabel)) talents.push(armLabel);
+    }
+    const player = new Player(
       stats.name,
       physical.velocity,
       physical.power,
@@ -713,10 +720,14 @@ class StatMapper {
         englishName: stats.englishName
       }
     );
+    player.talents = talents;
+    if (armSlot) player.armSlot = armSlot;
+    return player;
   }
 
   createInternationalPlayer(candidate) {
-    return new Player(
+    // v3.25：國際球員給予內建特質（已預設好），天賦從 abilities 推
+    const player = new Player(
       `${candidate.name}「${candidate.nickname}」`,
       candidate.physical.velocity,
       candidate.physical.power,
@@ -742,12 +753,14 @@ class StatMapper {
         advancedStats: candidate.advancedStats
       }
     );
+    player.talents = this.inferTalents({ role: candidate.role }, candidate.abilities);
+    return player;
   }
 
   // v1.14：建立傳奇英雄（碎片商店兌換用）
   createLegendaryHero(candidate) {
     const traits = ['傳奇英雄', ...(candidate.traits || [])];
-    return new Player(
+    const player = new Player(
       `${candidate.name}「${candidate.nickname}」`,
       candidate.physical.velocity,
       candidate.physical.power,
@@ -773,30 +786,26 @@ class StatMapper {
         advancedStats: candidate.advancedStats
       }
     );
+    player.talents = this.inferTalents({ role: candidate.role }, candidate.abilities);
+    return player;
   }
 
-  inferTraits(stats, abilities) {
-    const traits = [];
-    if (stats.role === 'P') {
-      if (abilities.velocity >= 82 || abilities.control >= 82) traits.push(i18n.elitePitcher);
-      if (abilities.stuff >= 86 && abilities.crisis >= 82) traits.push('王牌');
-      if ((stats.fip || 9) <= 2.9) traits.push('滾地球投手');
-      if (abilities.control <= 58 || (stats.bbRate || 0) >= 8.5) traits.push('控球不穩');
-    } else {
-      if (abilities.power >= 82) traits.push(i18n.powerHitter);
-      if (abilities.power >= 90) traits.push('怪力');
-      if (abilities.speed >= 82) traits.push(i18n.buntSpecialist);
-      if (abilities.discipline >= 82) traits.push(i18n.disciplined);
-      if (abilities.discipline >= 86) traits.push('選球眼');
-      if (abilities.fielding >= 88) traits.push('守備職人');
-      if (abilities.vsLeft >= 82) traits.push('對左強');
-      if (abilities.speed >= 84 || (stats.sb || 0) >= 18) traits.push('盜壘好手');
-      if (abilities.clutch >= 84) traits.push('大心臟');
-      if ((stats.kRate || 0) >= 21 && (stats.bbRate || 0) < 8) traits.push('恐左');
-      if (abilities.power >= 78 && abilities.contact >= 76) traits.push('低球打');
+  // v3.25：從 abilities 推出「天賦」（純顯示，不加成）
+  inferTalents(stats, abilities) {
+    const talents = [];
+    const pool = window.GAME_PARAMS?.talents || [];
+    const isPitcher = stats.role === 'P';
+    const side = isPitcher ? 'P' : 'B';
+    for (const t of pool) {
+      if (t.side !== side && t.side !== 'BP') continue;
+      try {
+        if (t.condition(abilities, stats)) talents.push(t.name);
+      } catch (e) { /* abilities 缺欄位略過 */ }
     }
-    return traits;
+    return talents;
   }
+  // 舊接口別名（避免外部呼叫炸掉）
+  inferTraits(stats, abilities) { return this.inferTalents(stats, abilities); }
 
   // Convert AVG to power (0-99)
   avgToPower(avg) {
@@ -898,6 +907,8 @@ class Player {
     this.daysOfRest = Number.isFinite(meta.daysOfRest) ? meta.daysOfRest : (this.pitcherRole === 'SP' ? 4 : 2);
     // pitchedLastGame：上一場是否登板（給 SeasonManager 在賽後更新 daysOfRest 用）
     this.pitchedLastGame = Boolean(meta.pitchedLastGame);
+    // v4.1：教練一軍能力加成的可逆 delta（abilities 已含此 delta；save 連同存，load 不重複加）
+    this.coachAbilityDelta = (meta.coachAbilityDelta && typeof meta.coachAbilityDelta === 'object') ? meta.coachAbilityDelta : {};
   }
 
   // v1.14：取得本投手的理想休息場數
@@ -1085,11 +1096,21 @@ class Player {
   }
 
   consumeStamina(amount) {
-    // v1.16：燃燒生命保留爆發感，但避免一個打席直接燒掉大量體力。
+    // v3.25.2：體力非線性下降 — 高體力區下降慢（0.5x），低體力區崩盤快（2.2x）
     let multiplier = this.burnLifeActive ? 1.2 : 1;
     if (this.canPitch() && this.isOverworked && this.isOverworked()) multiplier *= 1.4;
+    // 投手套用 staminaStates.decayMul（打者不適用，跑壘/打擊體力消耗仍線性）
+    if (this.canPitch && typeof getStaminaState === 'function') {
+      const state = getStaminaState(this);
+      if (state && typeof state.decayMul === 'number') multiplier *= state.decayMul;
+    }
     this.state.stamina -= amount * multiplier;
     this.state.stamina = clampInt(this.state.stamina, 0, this.maxStamina);
+  }
+
+  // v3.25.2：投手體力狀態（給 UI 用，回傳一個物件 { key, label, icon, color, mods, decayMul }）
+  getStaminaStateInfo() {
+    return (typeof getStaminaState === 'function') ? getStaminaState(this) : null;
   }
 
   getAverageAttribute() {
@@ -1208,8 +1229,7 @@ class GachaSystem {
 
   drawPlayer(pool = 'local') {
     if (pool === 'international') {
-      const candidate = this.internationalCandidates[Math.floor(Math.random() * this.internationalCandidates.length)];
-      return this.statMapper.createInternationalPlayer(candidate);
+      return this.drawInternationalByRarity();
     }
     const available = this.localCandidates.filter(player => !player.protected);
     const candidate = available[Math.floor(Math.random() * available.length)];
@@ -1218,6 +1238,61 @@ class GachaSystem {
       injuryProbability: candidate.role === 'P' ? 0.045 : 0.03,
       ageDecline: 0.012
     });
+  }
+
+  // v4.1：海外池稀有度分級 — SSR 1.5%(rating S) / SR 13%(rating A,B) / R 85%(虛構填充)
+  drawInternationalByRarity() {
+    const roll = Math.random();
+    let tier;
+    if (roll < 0.015) tier = 'SSR';
+    else if (roll < 0.015 + 0.13) tier = 'SR';
+    else tier = 'R';
+    if (tier === 'R') {
+      return this.statMapper.createInternationalPlayer(this.createFictionalFillerCandidate());
+    }
+    const wantRatings = tier === 'SSR' ? ['S'] : ['A', 'B'];
+    let bucket = this.internationalCandidates.filter(c => wantRatings.includes(c.rating || 'A'));
+    if (!bucket.length) bucket = this.internationalCandidates; // 該層名單為空時退而求其次
+    if (!bucket.length) return this.statMapper.createInternationalPlayer(this.createFictionalFillerCandidate());
+    const candidate = bucket[Math.floor(Math.random() * bucket.length)];
+    return this.statMapper.createInternationalPlayer(candidate);
+  }
+
+  // v4.1：虛構一般海外球員（R 級填充，用來拉低整體巨星抽中機率）
+  createFictionalFillerCandidate() {
+    const r = (lo, hi) => Math.round(lo + Math.random() * (hi - lo));
+    const pick = arr => arr[r(0, arr.length - 1)];
+    const westSur = ['洛佩茲','史密斯','岡薩雷茲','約翰森','布朗','加西亞','威爾森','安德森','馬丁','克拉克','劉易斯','沃克','貝克','里維拉','摩根','羅斯'];
+    const westGiven = ['卡洛斯','凱文','馬丁','路易斯','東尼','瑞奇','艾迪','荷西','麥可','傑森','布萊恩','丹尼','維克多','法蘭克','戴夫'];
+    const jpSur = ['佐藤','鈴木','高橋','田中','渡邊','伊藤','中村','小林','加藤','吉田'];
+    const jpGiven = ['健太','大輔','翔','拓海','直樹','和也','陽介','亮','颯太','駿'];
+    const isJp = Math.random() < 0.4;
+    const name = isJp
+      ? pick(jpSur) + pick(jpGiven)
+      : pick(westSur) + '・' + pick(westGiven);
+    const nickname = pick(['輪值班底','即戰力','工具人','潛力股','老將','板凳奇兵']);
+    const team = isJp ? 'NPB' : 'MLB';
+    const isPitcher = Math.random() < 0.4;
+    if (isPitcher) {
+      const velocity = r(56, 72), control = r(52, 68), breaking = r(50, 66), stamina = r(60, 78), fielding = r(55, 68), discipline = r(50, 62);
+      return {
+        name, nickname, englishName: 'Journeyman',
+        role: 'P', position: Math.random() < 0.5 ? 'SP' : 'RP', team,
+        bats: 'R', throws: Math.random() < 0.25 ? 'L' : 'R', rating: 'R',
+        abilities: { velocity, control, breaking, stamina, fielding, discipline },
+        physical: { velocity, power: 48, control, speed: r(55, 66) },
+        traits: []
+      };
+    }
+    const contact = r(52, 66), power = r(50, 66), speed = r(50, 72), fielding = r(55, 70), arm = r(55, 70), discipline = r(50, 65), clutch = r(50, 64);
+    return {
+      name, nickname, englishName: 'Journeyman',
+      role: 'B', position: pick(['LF','CF','RF','1B','2B','3B','SS','C']), team,
+      bats: Math.random() < 0.35 ? 'L' : 'R', throws: 'R', rating: 'R',
+      abilities: { contact, power, speed, fielding, arm, discipline, clutch },
+      physical: { velocity: arm, power, control: contact, speed },
+      traits: []
+    };
   }
 
   getPoolPreview(pool = 'local') {
@@ -1372,13 +1447,15 @@ class SaveManager {
         // v1.14
         pitcherRole: p.pitcherRole,
         daysOfRest: p.daysOfRest,
-        pitchedLastGame: p.pitchedLastGame
+        pitchedLastGame: p.pitchedLastGame,
+        coachAbilityDelta: p.coachAbilityDelta
       })),
       activeLineup: {
         pitcher: game.roster.activeLineup.pitcher ? game.roster.players.indexOf(game.roster.activeLineup.pitcher) : null,
         batter: game.roster.activeLineup.batter ? game.roster.players.indexOf(game.roster.activeLineup.batter) : null
       },
       currency: game.currency,
+      goldBaseball: game.goldBaseball,
       mana: game.pitcher.state.mana,
       playerScore: game.playerScore,
       opponentScore: game.opponentScore,
@@ -1401,6 +1478,8 @@ class SaveManager {
       bullpenOrder: game.bullpenOrder, // v1.14
       scoutingReports: game.scoutingReports,
       baserunningMode: game.baserunningMode,
+      defensiveShift: game.defensiveShift,
+      opponentDefensiveShift: game.opponentDefensiveShift,
       offenseApproach: game.offenseApproach,
       pitchPlan: game.pitchPlan,
       battingStrategy: game.battingStrategy,
@@ -1436,8 +1515,21 @@ class SaveManager {
       storylineStage: game.storylineStage,
       wbcBracket: game.wbcBracket,
       storylineIntroShown: game.storylineIntroShown,
+      tutorialCompleted: game.tutorialCompleted, // v4.1 Phase 4 新手教學旗標
       // 投手等級/XP
-      playerLevels: game.roster.players.map(p => ({ playerLevel: p.playerLevel, playerXP: p.playerXP, rating: p.rating }))
+      playerLevels: game.roster.players.map(p => ({ playerLevel: p.playerLevel, playerXP: p.playerXP, rating: p.rating })),
+      // v3.23：後勤資料、教練證、球員養成三軌
+      coachCerts: game.coachCerts || 0,
+      playerBatterStats: game.playerBatterStats || {},
+      logisticsData: typeof game.logisticsCenter?.toJSON === 'function' ? game.logisticsCenter.toJSON() : null,
+      playerGrowthData: game.roster.players.map(p => ({
+        name: p.name,
+        cardLevel: p.cardLevel || 0,
+        cardCards: p.cardCards || 0,
+        playerFragments: p.playerFragments || 0,
+        playerRank: p.playerRank || 0,
+        growthLog: p.growthLog || []
+      }))
     };
     localStorage.setItem('baseballGame', JSON.stringify(data));
   }
@@ -1481,7 +1573,8 @@ class SaveManager {
             // v1.14
             pitcherRole: p.pitcherRole,
             daysOfRest: p.daysOfRest,
-            pitchedLastGame: p.pitchedLastGame
+            pitchedLastGame: p.pitchedLastGame,
+            coachAbilityDelta: p.coachAbilityDelta
           }
         );
         player.state.stamina = clampInt(p.state.stamina, 0, player.maxStamina);
@@ -1500,6 +1593,7 @@ class SaveManager {
         game.batter = game.roster.activeLineup.batter || game.batter;
       }
       game.currency = data.currency || 1000;
+      game.goldBaseball = Number.isFinite(data.goldBaseball) ? data.goldBaseball : 300; // v4.1 migration：舊存檔補起手包
       game.pitcher.state.mana = data.mana || 100;
       game.playerScore = data.playerScore || 0;
       game.opponentScore = data.opponentScore || 0;
@@ -1525,6 +1619,12 @@ class SaveManager {
       game.bullpenOrder = Array.isArray(data.bullpenOrder) ? data.bullpenOrder : []; // v1.14
       game.scoutingReports = data.scoutingReports || game.scoutingReports;
       game.baserunningMode = data.baserunningMode || game.baserunningMode;
+      game.defensiveShift = (typeof DefenseStateBuilder !== 'undefined' && Object.prototype.hasOwnProperty.call(DefenseStateBuilder.DEFENSIVE_ALIGNMENTS, data.defensiveShift))
+        ? data.defensiveShift
+        : (game.defensiveShift || 'standard');
+      game.opponentDefensiveShift = (typeof DefenseStateBuilder !== 'undefined' && Object.prototype.hasOwnProperty.call(DefenseStateBuilder.DEFENSIVE_ALIGNMENTS, data.opponentDefensiveShift))
+        ? data.opponentDefensiveShift
+        : 'standard';
       game.offenseApproach = data.offenseApproach || game.offenseApproach;
       game.pitchPlan = data.pitchPlan || game.pitchPlan;
       game.battingStrategy = getStrategyKey(data.battingStrategy || LEGACY_OFFENSE_STRATEGY_MAP[game.offenseApproach] || game.battingStrategy);
@@ -1561,6 +1661,7 @@ class SaveManager {
       if (data.storylineStage) game.storylineStage = data.storylineStage;
       if (data.wbcBracket) game.wbcBracket = data.wbcBracket;
       if (typeof data.storylineIntroShown === 'boolean') game.storylineIntroShown = data.storylineIntroShown;
+      if (typeof data.tutorialCompleted === 'boolean') game.tutorialCompleted = data.tutorialCompleted;
       // 球員等級回填
       if (Array.isArray(data.playerLevels)) {
         data.playerLevels.forEach((info, idx) => {
@@ -1572,6 +1673,55 @@ class SaveManager {
           }
         });
       }
+      // v3.23：教練證 / 統計 / 後勤
+      if (Number.isFinite(data.coachCerts)) game.coachCerts = data.coachCerts;
+      if (data.playerBatterStats && typeof data.playerBatterStats === 'object') game.playerBatterStats = data.playerBatterStats;
+      if (data.logisticsData && typeof game.logisticsCenter?.loadFromJSON === 'function') {
+        game.logisticsCenter.loadFromJSON(data.logisticsData);
+      }
+      // v4.1：載入後重算教練一軍能力加成（先移除存檔內舊 delta 再依現況重算，idempotent）
+      if (typeof game.applyCoachAbilityBonuses === 'function') game.applyCoachAbilityBonuses();
+      // v3.23：球員養成三軌回填
+      if (Array.isArray(data.playerGrowthData) && typeof window.PlayerGrowth?.ensureGrowthFields === 'function') {
+        const byName = new Map(data.playerGrowthData.map(g => [g.name, g]));
+        game.roster.players.forEach(p => {
+          window.PlayerGrowth.ensureGrowthFields(p);
+          const g = byName.get(p.name);
+          if (g) {
+            p.cardLevel = g.cardLevel || 0;
+            p.cardCards = g.cardCards || 0;
+            p.playerFragments = g.playerFragments || 0;
+            p.playerRank = g.playerRank || 0;
+            if (Array.isArray(g.growthLog)) p.growthLog = g.growthLog;
+          }
+        });
+      }
+      // v3.25：天賦/特質 migration — 舊存檔的 traits 內含天賦字串，移到 talents
+      const TALENT_NAMES = new Set((window.GAME_PARAMS?.talents || []).map(t => t.name));
+      const LEGACY_TALENT_NAMES = new Set(['力量打者', '紀律性', '觸擊專家', '精英投手', '王牌', '滾地球投手', '守備職人', '對左強', '盜壘好手', '低球打']);
+      game.roster.players.forEach(p => {
+        if (!Array.isArray(p.talents)) p.talents = [];
+        if (Array.isArray(p.traits)) {
+          const migrated = [];
+          const keepTraits = [];
+          for (const t of p.traits) {
+            if (TALENT_NAMES.has(t) || LEGACY_TALENT_NAMES.has(t)) {
+              if (!p.talents.includes(t)) migrated.push(t);
+            } else {
+              keepTraits.push(t);  // 留下真正的特質、傳奇英雄 tag
+            }
+          }
+          p.talents.push(...migrated);
+          p.traits = keepTraits;
+        }
+        // 重新從 abilities 推算 talents（補上漏掉的）
+        if (p.abilities && game.statMapper?.inferTalents) {
+          const fresh = game.statMapper.inferTalents({ role: p.role }, p.abilities);
+          for (const t of fresh) {
+            if (!p.talents.includes(t)) p.talents.push(t);
+          }
+        }
+      });
       game.normalizeManagementState();
     }
   }
@@ -1633,6 +1783,7 @@ class SeasonManager {
       this.wins++;
       result = 'Win';
       this.game.currency += 300;
+      this.game.goldBaseball = (this.game.goldBaseball || 0) + 20; // v4.1：勝利發放黃金棒球（賽後獎勵）
     } else if (this.game.playerScore < this.game.opponentScore) {
       this.losses++;
       result = 'Loss';
@@ -1653,14 +1804,48 @@ class SeasonManager {
     // v1.18 #2：賽後每位上場球員給 XP（出場費用 XP）
     this.game.roster.players.forEach(p => {
       if (p.level === 'minor') {
-        // 二軍球員：少量 XP（v1.18 #2）
         awardPlayerXP(p, 10, 'all', this.game);
       } else {
-        // 一軍球員：較多 XP
         awardPlayerXP(p, 20, p.role === 'P' ? 'pitching' : 'batting', this.game);
       }
     });
-    showMatchSummary(result, this.game.playerScore, this.game.opponentScore, this.game.currency, heatReward, this.game.getStandingsHTML());
+    // v3.23：套用一軍 / 二軍訓練倍率
+    if (this.game.logisticsCenter?.applyBetweenGamesEffects) {
+      this.game.logisticsCenter.applyBetweenGamesEffects();
+    }
+    // v3.23：生成並套用獎勵，改顯示報紙頭版
+    let rewards = null;
+    if (typeof window.RewardsSystem?.generateRewards === 'function') {
+      rewards = window.RewardsSystem.generateRewards(this.game, result, {
+        playerHits: this.game.playerHits,
+        playerHR: this.game.matchStats?.playerHR || 0,
+        heat: heatReward
+      });
+      window.RewardsSystem.applyRewards(this.game, rewards);
+    }
+    if (typeof window.NewspaperSummary?.showNewspaperSummary === 'function') {
+      window.NewspaperSummary.showNewspaperSummary({
+        result,
+        playerScore: this.game.playerScore,
+        opponentScore: this.game.opponentScore,
+        opponentName: this.game.opponentTeam?.name || '對手',
+        lineScore: this.game.lineScore,
+        matchStats: this.game.matchStats,
+        playerHits: this.game.playerHits,
+        opponentHits: this.game.opponentHits,
+        playerErrors: this.game.playerErrors,
+        opponentErrors: this.game.opponentErrors,
+        mvp: rewards?.mvp || null,
+        rewards: rewards ? { money: rewards.money, coachCerts: rewards.coachCerts, playerCards: rewards.playerCards, heat: heatReward } : { money: 0, heat: heatReward },
+        standingsHTML: this.game.getStandingsHTML(),
+        game: this.game,
+        walkoff: (result === 'Win' && this.game.currentHalf === 'bottom' && this.game.inning >= 9),
+        comeback: false
+      });
+    } else {
+      // fallback：使用舊版摘要
+      showMatchSummary(result, this.game.playerScore, this.game.opponentScore, this.game.currency, heatReward, this.game.getStandingsHTML(), this.game.matchStats, this.game.lineScore, this.game.playerHits, this.game.opponentHits, this.game.playerErrors, this.game.opponentErrors, this.game.opponentTeam?.name || '對手');
+    }
     this.game.saveManager.save(this.game);
     if (this.currentMatch < this.seasonLength) {
       this.currentMatch++;
@@ -1694,6 +1879,7 @@ class Game {
     this.opponentTeam = this.generateOpponentTeam(this.currentOpponent);
     this.currentTactic = i18n.normal;
     this.currency = 1000;
+    this.goldBaseball = 300; // v4.1：抽卡專用貨幣（教練池／海外池）。新手起手包；主要靠任務／賽後／賽季里程碑取得，無保底
     this.playerScore = 0;
     this.opponentScore = 0;
     this.lineScore = this.createEmptyLineScore();
@@ -1704,7 +1890,15 @@ class Game {
     this.autoSimEnabled = false;
     this.seasonManager = new SeasonManager(this);
     this.saveManager = new SaveManager();
-    this.medicalCenter = new MedicalCenter(this);
+    // v3.23：以 LogisticsCenter 取代 MedicalCenter，保留別名以維持舊呼叫
+    this.logisticsCenter = (typeof LogisticsCenter !== 'undefined')
+      ? new LogisticsCenter(this)
+      : new MedicalCenter(this);
+    this.medicalCenter = this.logisticsCenter;
+    // v3.23：教練證（升級教練用）
+    this.coachCerts = 0;
+    // v3.23：每位球員的場內統計（per-batter stats）
+    this.playerBatterStats = {};
     this.commentaryGenerator = new CommentaryGenerator();
     this.uiRenderer = null;
     this.initialize7thTeamRoster(); // Initialize with real-stat CPBL expansion roster
@@ -1712,6 +1906,8 @@ class Game {
     this.playerNextBatterIndex = 0;
     this.defensiveSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
     this.defensiveAssignments = {};
+    this.defensiveShift = 'standard';
+    this.opponentDefensiveShift = 'standard';
     this.rotationOrder = [];
     this.rotationSlot = 0;
     this.scoutingReports = { local: false, international: false };
@@ -1733,7 +1929,13 @@ class Game {
     this.lastInPlayContext = null;
     this.opponentUseBurnLife = false;
     this.pickoffAttemptsThisHalf = 0;
+    // v4.1 #6：對決模式（'pitch' = 投球；'pickoff' = 鎖定牽制）。對決開始鈕依此路由。
+    this.duelMode = 'pitch';
+    // v4.1 3C'：玩家指定的實際球種名稱（null = 交給配球邏輯自動選）。只影響我方投球。
+    this.playerPitchChoice = null;
     this.managementLog = [];
+    // v3.22：賽事統計（每場比賽重置）
+    this.matchStats = { playerK: 0, playerBB: 0, playerHR: 0, opponentK: 0, opponentBB: 0, opponentHR: 0, keyEvents: [] };
     // v1.14：教練資料來自 data.js（COACHES_DATA）
     this.coaches = Array.isArray(window.COACHES_DATA) && window.COACHES_DATA.length
       ? window.COACHES_DATA.map(coach => ({ ...coach }))
@@ -1793,6 +1995,8 @@ class Game {
     this.wbcBracket = null;
     // 是否已經顯示過主線劇情開場
     this.storylineIntroShown = false;
+    // v4.1 Phase 4：是否已完成新手教學
+    this.tutorialCompleted = false;
 
     // v2.11 #5：補初始開場廣播（讓玩家第一場就有歡迎詞）
     const initStadium = window.STADIUMS_DATA?.[this.currentStadiumId];
@@ -1951,6 +2155,45 @@ class Game {
     this.saveManager.save(this);
     this.updateUI();
     return true;
+  }
+
+  // v4.1：套用「一軍教練→對應族群球員」的能力加成（可逆 delta，不污染基礎值）
+  // 在部署/卸任/升級教練（logistics-system）、載入存檔、每場賽前都會呼叫
+  applyCoachAbilityBonuses() {
+    if (!this.logisticsCenter || !this.roster || !Array.isArray(this.roster.players)) return;
+    const contribs = (typeof this.logisticsCenter.getMajorAbilityContributions === 'function')
+      ? this.logisticsCenter.getMajorAbilityContributions() : [];
+    this.roster.players.forEach(player => {
+      if (!player || !player.abilities) return;
+      const oldDelta = player.coachAbilityDelta || {};
+      // 1) 先移除上一輪加成（可逆）
+      for (const k of Object.keys(oldDelta)) {
+        if (typeof player.abilities[k] === 'number') player.abilities[k] -= oldDelta[k];
+      }
+      // 2) 計算這一輪加成（僅一軍 + 對應族群）
+      const newDelta = {};
+      if (player.level !== 'minor') {
+        const canP = typeof player.canPitch === 'function' && player.canPitch();
+        const canB = typeof player.canBat === 'function' && player.canBat();
+        contribs.forEach(c => {
+          const applies = c.group === 'pitcher' ? canP : canB;
+          if (!applies) return;
+          c.abilities.forEach(ab => {
+            if (typeof player.abilities[ab] === 'number') {
+              newDelta[ab] = (newDelta[ab] || 0) + c.amount;
+            }
+          });
+        });
+      }
+      // 3) 套用新加成，夾 99，記錄實際套用量確保可逆
+      for (const k of Object.keys(newDelta)) {
+        const before = player.abilities[k];
+        const after = Math.min(99, before + newDelta[k]);
+        newDelta[k] = after - before;
+        player.abilities[k] = after;
+      }
+      player.coachAbilityDelta = newDelta;
+    });
   }
 
   updateLeagueStandings(result) {
@@ -2276,7 +2519,48 @@ class Game {
     return true;
   }
 
+  // v3.22：比賽是否已開始（任何球數或得分已發生）
+  isMatchInProgress() {
+    return this.inning > 1 || this.playerScore > 0 || this.opponentScore > 0 ||
+           this.playerHits > 0 || this.opponentHits > 0;
+  }
+
+  // v3.22：對手投球傾向計算（依球數、壘況、投手球種）
+  computeOpponentPitchTendency() {
+    const pitcher = this.opponentTeam?.pitcher;
+    const pitchTypes = Array.isArray(pitcher?.pitchTypes) ? pitcher.pitchTypes : [];
+    const plan = this.opponentPitchPlan || 'balanced';
+    const effort = this.opponentPitchEffort || 'normal';
+    const b = this.balls, s = this.strikes;
+    const runnersOn = this.playerRunners.filter(Boolean).length;
+    const hasFB = pitchTypes.some(p => ['SFF','FF','SI','FC','FT'].includes(p) || String(p).includes('速'));
+    const hasBR = pitchTypes.some(p => ['SL','CB','CU','KC'].includes(p) || /滑|曲|變化/.test(String(p)));
+    const hasOS = pitchTypes.some(p => ['CH','FS','FK'].includes(p) || /指|叉|變速/.test(String(p)));
+    let fb = plan==='fastball'?0.55 : plan==='breaking'?0.22 : plan==='waste'?0.28 : 0.40;
+    let br = plan==='breaking'?0.52 : plan==='fastball'?0.20 : plan==='waste'?0.26 : 0.33;
+    let os = plan==='waste'?0.38 : 0.17;
+    // 球數調整
+    if (b===3)                 { fb+=0.18; br-=0.10; }
+    if (s===2)                 { br+=0.12; os+=0.06; fb-=0.10; }
+    if (b===0 && s===0)        { fb+=0.06; }
+    if (b===3 && s===2)        { fb+=0.08; br-=0.04; }
+    if (effort==='full')       { fb+=0.08; br-=0.04; }
+    if (effort==='easy')       { fb-=0.05; os+=0.05; }
+    if (runnersOn>0 && s<2)    { fb+=0.05; }
+    if (runnersOn>=2)          { br+=0.05; }
+    if (!hasBR) { fb+=br*0.6; os+=br*0.4; br=0; }
+    if (!hasOS) { fb+=os*0.6; br+=os*0.4; os=0; }
+    if (!hasFB) { br+=fb*0.7; os+=fb*0.3; fb=0; }
+    const total = fb+br+os; if (total<=0) return {fastball:0.40,breaking:0.35,offspeed:0.25};
+    return { fastball:Math.max(0,Math.round(fb/total*100))/100, breaking:Math.max(0,Math.round(br/total*100))/100, offspeed:Math.max(0,Math.round(os/total*100))/100 };
+  }
+
   selectStartingPitcher(index) {
+    // v3.22：比賽進行中禁止更換先發（應使用 bringInReliever）
+    if (this.isMatchInProgress()) {
+      this.addManagementLog('比賽進行中無法更換先發投手，請使用「換投」功能。');
+      return false;
+    }
     if (!this.roster.setActivePitcher(index)) return false;
     const player = this.roster.players[index];
     // v1.14：若不是 SP，給訊息提示但仍允許指定
@@ -2350,6 +2634,16 @@ class Game {
     this.updateUI();
   }
 
+  // v4.1 3C：直接設定跑壘風格（戰術旋鈕用）
+  setBaserunningMode(mode) {
+    if (!['conservative', 'normal', 'aggressive'].includes(mode)) return false;
+    this.baserunningMode = mode;
+    this.addManagementLog(`跑壘策略改為：${this.getBaserunningLabel()}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
   getRunnerAdvanceBonus() {
     if (this.baserunningMode === 'conservative') return -0.18;
     if (this.baserunningMode === 'aggressive') return 0.18;
@@ -2413,6 +2707,11 @@ class Game {
 
   setPitchAimCell(cellIndex) {
     this.pitchAimCell = normalizeZoneIndex(cellIndex, 5, this.pitchAimCell);
+    // v3.25.3：同步更新 pitchAimPosition 為該格中心 cm 座標
+    const idx = this.pitchAimCell;
+    const col = idx % 5;
+    const row = Math.floor(idx / 5);
+    this.pitchAimPosition = { x: (col - 2) * 15, y: (2 - row) * 15 };
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -2424,6 +2723,56 @@ class Game {
     this.saveManager.save(this);
     this.updateUI();
     return true;
+  }
+
+  // v4.1 3C'：玩家選擇實際球種（傳 null 取消＝自動配球）。只在我方投球時生效。
+  setPitchTypeChoice(name) {
+    if (this.currentHalf === 'bottom') {
+      this.addToLog('進攻半局無法選球種（那是對手投手的事）。');
+      return false;
+    }
+    const pool = Array.isArray(this.pitcher?.pitchTypes) ? this.pitcher.pitchTypes : [];
+    if (name && !pool.some(p => (p.name || p) === name)) return false;
+    this.playerPitchChoice = name || null;
+    if (typeof this.saveManager?.save === 'function') this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  // v4.1 #6：設定對決模式（'pitch' 投球 / 'pickoff' 鎖定牽制）。對決開始鈕依此路由執行。
+  setDuelMode(mode) {
+    let next = (mode === 'pickoff') ? 'pickoff' : 'pitch';
+    // 進攻半局（我方打擊）不能鎖牽制 — 牽制是守備方行為
+    if (next === 'pickoff' && this.currentHalf === 'bottom') {
+      this.addToLog('進攻半局無法鎖定牽制（牽制是守備方行為）。');
+      next = 'pitch';
+    }
+    this.duelMode = next;
+    if (next === 'pickoff') this.addToLog('已鎖定牽制：按「對決開始」將執行牽制。');
+    this.updateDuelModeUI();
+    return true;
+  }
+
+  // 同步對決開始鈕標籤與牽制鈕的鎖定狀態到畫面
+  updateDuelModeUI() {
+    const isPickoff = this.duelMode === 'pickoff';
+    const sub = (typeof document !== 'undefined') && document.getElementById('duel-start-sub');
+    const startBtn = (typeof document !== 'undefined') && document.getElementById('duel-start');
+    const pickoffBtn = (typeof document !== 'undefined') && document.getElementById('pickoff');
+    if (sub) sub.textContent = isPickoff ? '牽制' : '投球';
+    if (startBtn) startBtn.classList.toggle('duel-pickoff', isPickoff);
+    if (pickoffBtn) {
+      pickoffBtn.classList.toggle('active', isPickoff);
+      pickoffBtn.setAttribute('aria-pressed', isPickoff ? 'true' : 'false');
+    }
+    // v4.1 3B：同步投手 console 的牽制旋鈕
+    const knobPick = (typeof document !== 'undefined') && document.getElementById('knob-pickoff');
+    const kvPick = (typeof document !== 'undefined') && document.getElementById('knob-val-pickoff');
+    if (knobPick) {
+      knobPick.classList.toggle('active', isPickoff);
+      knobPick.setAttribute('aria-pressed', isPickoff ? 'true' : 'false');
+    }
+    if (kvPick) kvPick.textContent = isPickoff ? '開' : '關';
   }
 
   getPitchPlanLabel() {
@@ -2439,6 +2788,22 @@ class Game {
     }
     this.pitchPlan = plan;
     this.addManagementLog(`投球策略改為：${this.getPitchPlanLabel()}`);
+    this.saveManager.save(this);
+    this.updateUI();
+    return true;
+  }
+
+  // v3.21：玩家手動切換守備佈陣
+  setDefensiveShift(shiftKey) {
+    if (typeof DefenseStateBuilder === 'undefined') return false;
+    if (!Object.prototype.hasOwnProperty.call(DefenseStateBuilder.DEFENSIVE_ALIGNMENTS, shiftKey)) return false;
+    if (this.currentHalf === 'bottom') {
+      this.addToLog('進攻半局無法調整守備佈陣。');
+      return false;
+    }
+    this.defensiveShift = shiftKey;
+    const label = DefenseStateBuilder.DEFENSIVE_ALIGNMENTS[shiftKey]?.label || shiftKey;
+    this.addManagementLog(`守備佈陣改為：${label}`);
     this.saveManager.save(this);
     this.updateUI();
     return true;
@@ -2533,17 +2898,17 @@ class Game {
       return { success: false, message: '教練資料未載入。' };
     }
     const pool = window.COACHES_POOL;
-    const cost = 200;
-    if (this.currency < cost) {
-      this.addManagementLog('資金不足，無法抽教練。');
-      return { success: false, message: `資金不足（需要 ${cost}，目前 ${this.currency}）` };
+    const cost = 100; // v4.1：教練池改用黃金棒球
+    if ((this.goldBaseball || 0) < cost) {
+      this.addManagementLog('黃金棒球不足，無法抽教練。');
+      return { success: false, message: `黃金棒球不足（需要 ${cost}，目前 ${this.goldBaseball || 0}）` };
     }
     // 先檢查整體是否還抽得到任何教練
     const remaining = pool.filter(c => !this.hiredCoaches.includes(c.id));
     if (!remaining.length) {
       return { success: false, message: '所有教練都已聘僱完畢。' };
     }
-    this.currency -= cost;
+    this.goldBaseball -= cost;
     // SSR 5%, SR 20%, R 75%
     const roll = Math.random();
     let rarity = 'R';
@@ -2560,7 +2925,7 @@ class Game {
     }
     if (!pickPool.length) {
       // 應該不會走到這（前面已檢查 remaining），保險用
-      this.currency += cost;
+      this.goldBaseball += cost;
       return { success: false, message: '抽不到教練了。' };
     }
     const coach = pickPool[Math.floor(Math.random() * pickPool.length)];
@@ -2568,6 +2933,16 @@ class Game {
     this.addManagementLog(`🌟 抽到 ${coach.rarity} 教練：${coach.name}！`);
     this.saveManager.save(this);
     return { success: true, coach, message: `抽到 ${coach.rarity} 教練 ${coach.name}！` };
+  }
+
+  // v4.1：黃金棒球發放（任務／賽後／里程碑都走這裡，方便 Phase 4 接入）
+  grantGoldBaseball(amount, reason = '') {
+    if (!Number.isFinite(amount) || amount === 0) return;
+    this.goldBaseball = Math.max(0, (this.goldBaseball || 0) + amount);
+    const sign = amount > 0 ? '+' : '';
+    this.addManagementLog(`⚾ 黃金棒球 ${sign}${amount}${reason ? `（${reason}）` : ''}`);
+    if (this.saveManager) this.saveManager.save(this);
+    if (typeof this.updateUI === 'function') this.updateUI();
   }
 
 
@@ -2631,7 +3006,8 @@ class Game {
     const catcherArm = catcher?.abilities?.arm || 74;
     const speed = runner.abilities?.speed || runner.physical.speed || 70;
     const modeBonus = this.baserunningMode === 'aggressive' ? 0.08 : this.baserunningMode === 'conservative' ? -0.08 : 0;
-    const stealTrait = runner.traits.includes('盜壘好手') ? 0.08 : 0;
+    // v3.25：「閃電俠」特質才加盜壘成功率，「快腿」天賦純顯示
+    const stealTrait = runner.traits.includes('閃電俠') ? 0.10 : 0;
     const successChance = Math.max(0.18, Math.min(0.86, 0.52 + (speed - catcherArm) / 170 + modeBonus + stealTrait));
     const destination = targetBase + 1;
     runner.consumeStamina(2);
@@ -2787,7 +3163,7 @@ class Game {
     this.strikes = 0;
   }
 
-  advanceRunners(outcome, team = 'player', batter = null) {
+  advanceRunners(outcome, team = 'player', batter = null, precomputedAdvance = null) {
     if (typeof BaserunningEngine === 'undefined') {
       console.error('[advanceRunners] BaserunningEngine 未載入，請確認 baserunning-engine.js 已在 game.js 之前引入。');
       return;
@@ -2796,7 +3172,7 @@ class Game {
     const scoreKey = team === 'opponent' ? 'opponentScore' : 'playerScore';
     const hitter = batter || this.getCurrentMatchup().batter;
     const scoreBefore = this[scoreKey];
-    const result = BaserunningEngine.resolveAdvance({
+    const result = precomputedAdvance || BaserunningEngine.resolveAdvance({
       outcome,
       runners,
       hitter,
@@ -2809,6 +3185,11 @@ class Game {
     runners[2] = result.runners[2] || null;
     this[scoreKey] += result.runs;
     this.recordTeamRuns(team, this[scoreKey] - scoreBefore);
+    const baseOuts = Array.isArray(result.outsOnBases) ? result.outsOnBases.length : 0;
+    const outsToRecord = Math.min(baseOuts, Math.max(0, 3 - this.outs));
+    for (let i = 0; i < outsToRecord; i++) {
+      this.recordOut();
+    }
     this.updateUI();
   }
 
@@ -2822,7 +3203,46 @@ class Game {
 
   addToLog(message) {
     this.log.push(message);
+    // v3.22：即時追蹤關鍵事件供賽後回顧
+    if (this.matchStats && message) {
+      const txt = (typeof message === 'string' ? message : String(message)).replace(/<[^>]+>/g, '');
+      const isOffense = this.currentHalf === 'bottom'; // 我方進攻
+      if (txt.includes('本壘打') || txt.includes('全壘打')) {
+        if (isOffense) this.matchStats.playerHR++; else this.matchStats.opponentHR++;
+        if (this.matchStats.keyEvents.length < 12) this.matchStats.keyEvents.push({ inning: this.inning, half: this.currentHalf, txt });
+      } else if (txt.includes('三振') && !txt.includes('保送')) {
+        if (!isOffense) this.matchStats.playerK++; else this.matchStats.opponentK++;
+      } else if (txt.includes('保送') || txt.includes('四壞球')) {
+        if (isOffense) this.matchStats.playerBB++; else this.matchStats.opponentBB++;
+      } else if ((txt.includes('安打') || txt.includes('二壘安打') || txt.includes('三壘安打')) && this.matchStats.keyEvents.length < 12) {
+        this.matchStats.keyEvents.push({ inning: this.inning, half: this.currentHalf, txt });
+      }
+      // v3.23：per-batter stats 追蹤
+      this._trackPerPlayerStats(txt, isOffense);
+    }
     this.updateUI();
+  }
+
+  // v3.23：依當前打者/投手把事件累加到 playerBatterStats
+  _trackPerPlayerStats(txt, isOffense) {
+    if (!this.playerBatterStats) this.playerBatterStats = {};
+    const batter = isOffense ? this.batter : null;
+    const pitcher = !isOffense ? this.pitcher : null;
+    // 打者
+    if (batter && batter.name) {
+      const s = this.playerBatterStats[batter.name] = this.playerBatterStats[batter.name] || { ab: 0, h: 0, hr: 0, rbi: 0, k: 0, bb: 0, r: 0 };
+      if (txt.includes('本壘打') || txt.includes('全壘打')) { s.h++; s.hr++; s.ab++; }
+      else if (/[一二三]壘安打|安打/.test(txt) && !txt.includes('保送')) { s.h++; s.ab++; }
+      else if (txt.includes('三振')) { s.k++; s.ab++; }
+      else if (txt.includes('保送') || txt.includes('四壞')) { s.bb++; }
+      else if (txt.includes('出局') && /滾地|飛球|接殺|內野|外野/.test(txt)) { s.ab++; }
+    }
+    // 投手
+    if (pitcher && pitcher.name) {
+      const s = this.playerBatterStats[pitcher.name] = this.playerBatterStats[pitcher.name] || { ip: 0, k: 0, bb: 0, er: 0 };
+      if (txt.includes('三振')) s.k = (s.k || 0) + 1;
+      if (txt.includes('保送') || txt.includes('四壞')) s.bb = (s.bb || 0) + 1;
+    }
   }
 
   addManagementLog(message) {
@@ -2862,7 +3282,15 @@ class Game {
       }
       this.addToLog(`攻守交換！${i18n.inningStart}${this.inning}${i18n.inningEnd}，政治大學棒球隊守備。`);
     }
+    // v4.1 CRT：換局重置牽制鎖定
+    this.duelMode = 'pitch';
+    if (typeof this.updateDuelModeUI === 'function') this.updateDuelModeUI();
     this.updateUI();
+    // v4.1 CRT：換局時自動彈出記分板 overlay（含本局結束的 linescore）；全場自動模式不彈，避免卡住
+    if (!this.autoSimEnabled && typeof window !== 'undefined' && typeof window.showInningScoreboard === 'function') {
+      const halfTxt = this.currentHalf === 'bottom' ? `${this.inning} 局下` : `${this.inning} 局上`;
+      window.showInningScoreboard(`換局 ▸ ${halfTxt}`);
+    }
   }
 
   nextInning() {
@@ -2902,8 +3330,14 @@ class Game {
   }
 
   prepareNextMatch() {
+    // v4.1：每場賽前依當前教練部署重算一軍能力加成
+    if (typeof this.applyCoachAbilityBonuses === 'function') this.applyCoachAbilityBonuses();
     // v2.11 #10：清空上一場的轉播日誌
     this.log = [];
+    // v3.22：重置賽事統計
+    this.matchStats = { playerK: 0, playerBB: 0, playerHR: 0, opponentK: 0, opponentBB: 0, opponentHR: 0, keyEvents: [] };
+    // v3.23：重置 per-batter stats
+    this.playerBatterStats = {};
     this.inning = 1;
     this.outs = 0;
     this.currentHalf = 'top';   // 重新從上半局開始
@@ -2980,26 +3414,68 @@ class Game {
   }
 
   drawPlayer(pool = 'local') {
-    if (this.currency < 100) {
-      this.addManagementLog(i18n.notEnoughCurrency);
-      return;
+    // v4.1：海外池用黃金棒球，本土池維持資金
+    const useGold = pool === 'international';
+    const cost = 100;
+    if (useGold) {
+      if ((this.goldBaseball || 0) < cost) {
+        this.addManagementLog('黃金棒球不足（海外池需用黃金棒球，可由任務／賽後／里程碑取得）。');
+        return;
+      }
+      this.goldBaseball -= cost;
+    } else {
+      if (this.currency < cost) {
+        this.addManagementLog(i18n.notEnoughCurrency);
+        return;
+      }
+      this.currency -= cost;
     }
-    this.currency -= 100;
     const player = this.gacha.drawPlayer(pool);
+    this._acquireDrawnPlayer(player, pool);
+    this.saveManager.save(this);
+    this.updateUI();
+    if (typeof renderShardShop === 'function') renderShardShop();
+  }
+
+  // v4.1：把抽到的球員放進名單／重複轉碎片（單抽與 11 連抽共用）
+  _acquireDrawnPlayer(player, pool) {
     const key = this.playerKey(player);
     // v1.14：抽到已收集的球員 → 轉換成碎片
     if (this.collectedPlayerKeys.has(key)) {
       const shardGain = pool === 'international' ? 8 : 5;
       this.playerShards += shardGain;
-      this.addManagementLog(`抽到重複球員 ${player.name}，轉換成 ${shardGain} 枚球員碎片！（總共 ${this.playerShards}）`);
+      // v3.23：同時加到該球員的個人碎片庫（用於品階提升）
+      const existing = this.roster.players.find(p => this.playerKey(p) === key);
+      if (existing && typeof window.PlayerGrowth?.addFragments === 'function') {
+        window.PlayerGrowth.addFragments(existing, shardGain);
+      }
+      this.addManagementLog(`抽到重複球員 ${player.name}，獲得 ${shardGain} 枚碎片（球員個人 + 通用各 ${shardGain}）！`);
       this.updateExpansionPreview(player, { duplicate: true, shardGain });
-    } else {
-      this.roster.addPlayer(player);
-      this.collectedPlayerKeys.add(key);
-      this.normalizeManagementState();
-      this.addManagementLog(`${i18n.recruited} ${player.name} (${pool === 'local' ? i18n.localTalent : i18n.internationalStar})!`);
-      this.updateExpansionPreview(player);
+      return { player, duplicate: true };
     }
+    this.roster.addPlayer(player);
+    this.collectedPlayerKeys.add(key);
+    this.normalizeManagementState();
+    this.addManagementLog(`${i18n.recruited} ${player.name} (${pool === 'local' ? i18n.localTalent : i18n.internationalStar})!`);
+    this.updateExpansionPreview(player);
+    return { player, duplicate: false };
+  }
+
+  // v4.1：海外池 11 連抽（10+1），1000 黃金棒球
+  drawInternationalEleven() {
+    const cost = 1000, draws = 11;
+    if ((this.goldBaseball || 0) < cost) {
+      this.addManagementLog('黃金棒球不足（11 連抽需 1000）。');
+      return;
+    }
+    this.goldBaseball -= cost;
+    let added = 0, dup = 0;
+    for (let i = 0; i < draws; i++) {
+      const p = this.gacha.drawPlayer('international');
+      const res = this._acquireDrawnPlayer(p, 'international');
+      if (res.duplicate) dup++; else added++;
+    }
+    this.addManagementLog(`🎉 海外 11 連抽完成！新進 ${added} 人、重複轉碎片 ${dup} 人。`);
     this.saveManager.save(this);
     this.updateUI();
     if (typeof renderShardShop === 'function') renderShardShop();
@@ -3056,7 +3532,7 @@ class Game {
         <span>${player.team}</span>
       </div>
       <div class="card-stats">
-        ${abilityPairs.map(([label, value]) => `<div class="card-stat-item"><span>${label}</span> <span>${clampInt(value)}</span></div>`).join('')}
+        ${abilityPairs.map(([label, value]) => `<div class="card-stat-item"><span>${label}</span> <span>${abilityWithGrade(value)}</span></div>`).join('')}
       </div>
       <div class="card-stat-item" style="justify-content: space-around; padding: 4px 0;">
         <span>XP: ${player.xp}</span>
@@ -3598,8 +4074,10 @@ function pickCommentary(category, ...args) {
 }
 
 // ---------- v1.18：球員等級與評等成長系統 ----------
+// v3.25：RATING_GROWTH_MULTIPLIER 仍用於 XP 累積速度（S 升級快 / D 升級慢）
+// RATING_STAT_CAP 已 deprecated，改由 PlayerGrowth.getAbilityCeiling (= 95 + rank × 5) 統一處理
 const RATING_GROWTH_MULTIPLIER = { S: 1.5, A: 1.2, B: 1.0, C: 0.8, D: 0.6 };
-const RATING_STAT_CAP = { S: 99, A: 92, B: 84, C: 70, D: 58 };
+const RATING_STAT_CAP = { S: 99, A: 92, B: 84, C: 70, D: 58 }; // deprecated, kept for legacy refs
 
 function getXPForNextLevel(level) {
   return Math.round(100 * Math.pow(level, 1.5));
@@ -3613,7 +4091,9 @@ function getPlayerRating(player) {
   return player.rating || player.sourceStats?.rating || 'B';
 }
 
-// 球員獲得經驗值（v1.18 #2、#4）
+// v3.25：統一升級入口 — 算出有效 XP 後委派給 PlayerGrowth
+//   - game.js 層只負責教練 xpBonus + 評等倍率
+//   - 升級判定、屬性加成、品階特質解鎖全部走 PlayerGrowth
 function awardPlayerXP(player, baseXP, category = 'all', game) {
   if (!player) return;
   // 教練 XP 加成
@@ -3625,46 +4105,22 @@ function awardPlayerXP(player, baseXP, category = 'all', game) {
     if (xb.all) bonus += xb.all;
     if (xb[category]) bonus += xb[category];
   });
-  // 評等成長倍率
+  // 評等成長倍率（S 1.5x、A 1.2x、B 1.0x、C 0.8x、D 0.6x）
   const rating = getPlayerRating(player);
   const ratingMul = RATING_GROWTH_MULTIPLIER[rating] || 1.0;
   const gain = Math.round(baseXP * (1 + bonus / 100) * ratingMul);
-  player.playerXP = (player.playerXP || 0) + gain;
-  // 自動升級判定
-  while (true) {
-    const lv = getPlayerLevel(player);
-    const need = getXPForNextLevel(lv);
-    if (player.playerXP >= need) {
-      player.playerXP -= need;
-      player.playerLevel = lv + 1;
-      // 升級加屬性（依評等決定上限）
-      const cap = RATING_STAT_CAP[rating] || 84;
-      const incChance = 0.5;
-      const increment = (key, amount) => {
-        if (player.abilities[key] !== undefined && player.abilities[key] < cap && Math.random() < incChance) {
-          player.abilities[key] = Math.min(cap, player.abilities[key] + amount);
-        }
-      };
-      if (category === 'batting') {
-        increment('contact', 1);
-        increment('power', 1);
-        increment('discipline', 1);
-      } else if (category === 'pitching') {
-        increment('velocity', 1);
-        increment('control', 1);
-        increment('breaking', 1);
-        increment('stuff', 1);
-      } else if (category === 'defense') {
-        increment('fielding', 1);
-        increment('arm', 1);
-      } else if (category === 'baserunning') {
-        increment('speed', 1);
-      } else {
-        // all
-        Object.keys(player.abilities).forEach(k => increment(k, 1));
-      }
-      if (game) game.addManagementLog(`🎉 ${player.name} 升到 Lv.${player.playerLevel}！`);
-    } else break;
+
+  // 委派給 PlayerGrowth：累積 XP、依等級門檻自動升級、依 category 加屬性
+  if (typeof PlayerGrowth !== 'undefined' && PlayerGrowth.gainXP) {
+    const beforeLv = player.playerLevel || 1;
+    PlayerGrowth.gainXP(player, gain, category);
+    const afterLv = player.playerLevel || 1;
+    if (game && afterLv > beforeLv) {
+      game.addManagementLog(`🎉 ${player.name} 升到 Lv.${afterLv}！`);
+    }
+  } else {
+    // PlayerGrowth 未載入時的最小備援
+    player.playerXP = (player.playerXP || 0) + gain;
   }
 }
 
@@ -3991,7 +4447,7 @@ const LEGACY_OFFENSE_STRATEGY_MAP = {
 };
 
 const GRADE_MOVE_SCALE = { S: 1.15, A: 1.08, B: 1.03, C: 1.00, D: 0.94, E: 0.88 };
-const EFFORT_MOVE_SCALE = { full: 1.05, normal: 1.0, easy: 0.94 };
+const EFFORT_MOVE_SCALE = { easy: 0.94, normal: 1.0, full: 1.05, max: 1.10 };
 
 const FAST_PITCH_TOKENS = ['四縫', '二縫', '卡特', '切球', '伸卡', '速叉', '快速指叉'];
 
@@ -4045,15 +4501,18 @@ function resolvePitchAimCell(game, battingTeam, plan = 'balanced') {
   }
   if (plan === 'fastball') {
     return pickWeighted([
-      { value: 6, weight: 1 }, { value: 7, weight: 1.2 }, { value: 8, weight: 1 },
-      { value: 11, weight: 1.4 }, { value: 12, weight: 2 }, { value: 13, weight: 1.4 },
-      { value: 16, weight: 1 }, { value: 17, weight: 1.2 }, { value: 18, weight: 1 }
+      { value: 6, weight: 0.9 }, { value: 7, weight: 1 }, { value: 8, weight: 0.9 },
+      { value: 11, weight: 1.1 }, { value: 12, weight: 1.45 }, { value: 13, weight: 1.1 },
+      { value: 16, weight: 0.9 }, { value: 17, weight: 1 }, { value: 18, weight: 0.9 },
+      { value: 1, weight: 0.65 }, { value: 3, weight: 0.65 }, { value: 5, weight: 0.55 }, { value: 9, weight: 0.55 },
+      { value: 15, weight: 0.55 }, { value: 19, weight: 0.55 }, { value: 21, weight: 0.65 }, { value: 23, weight: 0.65 }
     ]);
   }
   if (plan === 'breaking') {
     return pickWeighted([
       { value: 6, weight: 1.2 }, { value: 8, weight: 1.2 }, { value: 16, weight: 1.2 }, { value: 18, weight: 1.2 },
-      { value: 1, weight: 0.8 }, { value: 3, weight: 0.8 }, { value: 21, weight: 0.8 }, { value: 23, weight: 0.8 }
+      { value: 1, weight: 0.8 }, { value: 3, weight: 0.8 }, { value: 21, weight: 0.8 }, { value: 23, weight: 0.8 },
+      { value: 0, weight: 0.35 }, { value: 4, weight: 0.35 }, { value: 20, weight: 0.35 }, { value: 24, weight: 0.35 }
     ]);
   }
   if (plan === 'waste') {
@@ -4065,10 +4524,12 @@ function resolvePitchAimCell(game, battingTeam, plan = 'balanced') {
     ]);
   }
   return pickWeighted([
-    { value: 6, weight: 1.1 }, { value: 7, weight: 1.1 }, { value: 8, weight: 1.1 },
-    { value: 11, weight: 1.2 }, { value: 12, weight: 1.4 }, { value: 13, weight: 1.2 },
-    { value: 16, weight: 1.1 }, { value: 17, weight: 1.1 }, { value: 18, weight: 1.1 },
-    { value: 1, weight: 0.5 }, { value: 3, weight: 0.5 }, { value: 21, weight: 0.5 }, { value: 23, weight: 0.5 }
+    { value: 6, weight: 0.9 }, { value: 7, weight: 0.95 }, { value: 8, weight: 0.9 },
+    { value: 11, weight: 1 }, { value: 12, weight: 1.15 }, { value: 13, weight: 1 },
+    { value: 16, weight: 0.9 }, { value: 17, weight: 0.95 }, { value: 18, weight: 0.9 },
+    { value: 1, weight: 0.75 }, { value: 3, weight: 0.75 }, { value: 5, weight: 0.55 }, { value: 9, weight: 0.55 },
+    { value: 15, weight: 0.55 }, { value: 19, weight: 0.55 }, { value: 21, weight: 0.75 }, { value: 23, weight: 0.75 },
+    { value: 0, weight: 0.3 }, { value: 4, weight: 0.3 }, { value: 20, weight: 0.3 }, { value: 24, weight: 0.3 }
   ]);
 }
 
@@ -4098,9 +4559,10 @@ function classifyStuffGrade(stuffScore) {
 }
 
 function normalizeEffortKey(value) {
-  if (value === 'full' || value === 'normal' || value === 'easy') return value;
+  if (value === 'full' || value === 'normal' || value === 'easy' || value === 'max') return value;
   if (value === '全力') return 'full';
   if (value === '輕鬆') return 'easy';
+  if (value === '爆發' || value === '全開') return 'max';
   return 'normal';
 }
 
@@ -4115,16 +4577,25 @@ function getPitchName(pitch) {
 }
 
 function estimateStuffScore(pitcher, pitch) {
-  if (Number.isFinite(pitch?.stuff)) return clampNumber(pitch.stuff, 0, 100);
-  const velocity = clampNumber((pitch?.speed ?? pitcher.abilities?.velocity ?? 70), 0, 100);
-  const movement = clampNumber((pitch?.movement ?? pitcher.abilities?.breaking ?? 70), 0, 100);
-  const control = clampNumber((pitch?.control ?? pitcher.abilities?.control ?? 70), 0, 100);
-  return clampNumber(velocity * 0.45 + movement * 0.4 + control * 0.15, 0, 100);
+  let base;
+  if (Number.isFinite(pitch?.stuff)) base = clampNumber(pitch.stuff, 0, 100);
+  else {
+    const velocity = clampNumber((pitch?.speed ?? pitcher.abilities?.velocity ?? 70), 0, 100);
+    const movement = clampNumber((pitch?.movement ?? pitcher.abilities?.breaking ?? 70), 0, 100);
+    const control = clampNumber((pitch?.control ?? pitcher.abilities?.control ?? 70), 0, 100);
+    base = clampNumber(velocity * 0.45 + movement * 0.4 + control * 0.15, 0, 100);
+  }
+  // v3.25.4：特殊投法加成（下勾 +6、側投 +4，模擬出手點優勢補球速不足）
+  const armSlot = pitcher?.armSlot || window.GAME_PARAMS?.specialPitcherArmSlot?.[pitcher?.name];
+  const armBonus = armSlot ? (window.GAME_PARAMS?.armSlotBonus?.[armSlot]?.stuffScore || 0) : 0;
+  return clampNumber(base + armBonus, 0, 100);
 }
 
 function estimatePitchSpeedKmh(pitcher, pitch) {
-  const pitchSpeed = Number.isFinite(pitch?.speed) ? pitch.speed : (pitcher.abilities?.velocity || 75);
-  return clampNumber(112 + pitchSpeed * 0.6 + gaussianRandom(0, 1.8), 100, 170);
+  const velocity = Number.isFinite(pitcher?.abilities?.velocity) ? pitcher.abilities.velocity : 75;
+  const maxSpeed = 112 + velocity * 0.6;
+  const ratio = (pitch && pitch.name && window.PitchEngine?.PITCH_SPEED_RATIO?.[pitch.name]) || 1.0;
+  return clampNumber(maxSpeed * ratio + gaussianRandom(0, 1.5), 95, 175);
 }
 
 function classifyPitchSpeedGroup(pitchName) {
@@ -4361,8 +4832,12 @@ class OpponentAI {
       } else if (inning >= 8 && scoreDiff >= 0) {
         g.opponentPitchPlan = 'waste';
       } else {
-        const plans = ['fastball', 'balanced', 'breaking'];
-        g.opponentPitchPlan = plans[Math.floor(Math.random() * 3)];
+        g.opponentPitchPlan = pickWeighted([
+          { value: 'fastball', weight: 2.5 },
+          { value: 'balanced', weight: 3.5 },
+          { value: 'breaking', weight: 3 },
+          { value: 'waste', weight: 1 }
+        ]);
       }
       g.opponentPitchEffort = inning >= 8 && Math.abs(scoreDiff) <= 1 ? 'full' : (scoreDiff < -2 ? 'easy' : 'normal');
       const label = { fastball: '速球強攻', balanced: '均衡配球', breaking: '變化球誘騙', waste: '引誘出棒' }[g.opponentPitchPlan];
@@ -4374,6 +4849,31 @@ class OpponentAI {
       if (pitcher && highLeveragePitch && pitcher.state.stamina > 22 && Math.random() < 0.46) {
         g.opponentUseBurnLife = true;
         g.addToLog(`⚙ 對手技能：${pitcher.name} 燃燒生命壓制打者。`);
+      }
+      // v3.21：對手佈陣 AI（依局勢自動調整守備佈陣）
+      // v3.23：加入「打者特性」因素 — 長打型 → outfield_deep，觸擊型 → 防短打
+      const runnerOnThird = !!g.playerRunners[2];
+      const upcomingBatter = g.batter;
+      // v3.25：改讀 player.talents（天賦）判斷打者特性
+      const talents = upcomingBatter?.talents || [];
+      const traits  = upcomingBatter?.traits  || [];
+      const isPowerHitter = talents.includes('重砲手') || talents.includes('怪力') || traits.includes('傳奇英雄');
+      const isBuntSpecialist = talents.includes('快腿');
+      const isContactHitter = talents.includes('安打製造機') || talents.includes('選球眼');
+      if (runnersOn === 0) {
+        g.opponentDefensiveShift = isPowerHitter ? 'outfield_deep' : 'standard';
+      } else if (isBuntSpecialist && outs < 2 && runnersOn >= 1) {
+        g.opponentDefensiveShift = 'bunt_defense';
+      } else if (runnerOnThird && outs < 2 && Math.abs(scoreDiff) <= 1) {
+        g.opponentDefensiveShift = isContactHitter ? 'infield_in' : 'infield_in';
+      } else if (scoreDiff >= 4 && inning >= 7) {
+        g.opponentDefensiveShift = 'outfield_deep';
+      } else if (isPowerHitter && (runnersOn >= 1 && scoreDiff <= 1)) {
+        g.opponentDefensiveShift = 'outfield_deep';
+      } else if (runnersOn >= 2 || (runnersOn >= 1 && outs === 0)) {
+        g.opponentDefensiveShift = 'double_play';
+      } else {
+        g.opponentDefensiveShift = 'standard';
       }
     }
   }
@@ -4457,10 +4957,28 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
   breaking += pitcherCond;
   breaking *= pitcher.getPitchStaminaMultiplier ? pitcher.getPitchStaminaMultiplier() : 1;
 
-  // Trait 加成（投手）
-  if (pitcher.traits.includes(i18n.elitePitcher))               { vel += 4; breaking += 4; }
-  if (pitcher.traits.includes('王牌') && game.isHighLeverage()) { ctrl += 5; breaking += 4; }
-  if (pitcher.traits.includes('控球不穩'))                       ctrl -= 6;
+  // v3.25.2：投手體力狀態對能力的修正（取代並擴充舊有的 getPitchStaminaMultiplier）
+  const staminaState = typeof getStaminaState === 'function' ? getStaminaState(pitcher) : null;
+  if (staminaState && staminaState.mods) {
+    vel      += staminaState.mods.velocity || 0;
+    ctrl     += staminaState.mods.control  || 0;
+    breaking += staminaState.mods.breaking || 0;
+  }
+
+  // v3.25.4：特殊投法（下勾/側投）出手點加成
+  const armSlot = pitcher.armSlot || window.GAME_PARAMS?.specialPitcherArmSlot?.[pitcher.name] || null;
+  const armBonus = armSlot ? (window.GAME_PARAMS?.armSlotBonus?.[armSlot]) : null;
+  // 標記給後續 stuffScore 計算
+  pitcher._activeArmSlot = armSlot;
+  pitcher._activeArmBonus = armBonus;
+
+  // Trait 加成（投手）— v3.25：改為品階解鎖的「特質」名稱
+  if (pitcher.traits.includes('光速球'))    { vel += 6; breaking += 0; }
+  if (pitcher.traits.includes('縫紉機'))    { ctrl += 5; }
+  if (pitcher.traits.includes('魔球師'))    { breaking += 5; }
+  if (pitcher.traits.includes('絕對王牌') && game.isHighLeverage()) { ctrl += 5; breaking += 4; }
+  if (pitcher.traits.includes('覺醒'))      { vel += 2; ctrl += 2; breaking += 2; }
+  // 「控球不穩」「滾地球投手」改為純天賦標籤，已反映在 abilities.control / fip 數值上
 
   // 天氣
   if (game.weather === i18n.rainy) ctrl *= 0.85;
@@ -4473,13 +4991,19 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
 
   // 選球種
   const pitchPool = Array.isArray(pitcher.pitchTypes) ? pitcher.pitchTypes : [];
-  const selectedPitch = activePitchPlan === 'fastball'
-    ? pitchPool.find(p => getPitchName(p).includes('縫線') || getPitchName(p).includes('卡特')) || pitchPool[0]
-    : activePitchPlan === 'breaking'
-      ? pitchPool.slice().sort((a, b) => (b.movement || 0) - (a.movement || 0))[0]
-      : activePitchPlan === 'waste'
-        ? pitchPool.slice().sort((a, b) => (b.control || 0) - (a.control || 0))[0]
-        : pitchPool[0];
+  // v4.1 3C'：我方投球時，若玩家有指定實際球種，優先用玩家選的；否則沿用配球啟發式
+  const playerChoice = (battingTeam === 'opponent' && game.playerPitchChoice)
+    ? pitchPool.find(p => getPitchName(p) === game.playerPitchChoice)
+    : null;
+  const selectedPitch = playerChoice
+    ? playerChoice
+    : activePitchPlan === 'fastball'
+      ? pitchPool.find(p => getPitchName(p).includes('縫線') || getPitchName(p).includes('卡特')) || pitchPool[0]
+      : activePitchPlan === 'breaking'
+        ? pitchPool.slice().sort((a, b) => (b.movement || 0) - (a.movement || 0))[0]
+        : activePitchPlan === 'waste'
+          ? pitchPool.slice().sort((a, b) => (b.control || 0) - (a.control || 0))[0]
+          : pitchPool[0];
 
   if (selectedPitch) {
     vel      += ((selectedPitch.speed    || 75) - 75) / 18;
@@ -4505,29 +5029,35 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
   const batterCond = batter.getConditionModifier ? batter.getConditionModifier() : 0;
   contact += batterCond; pow += batterCond; spd += batterCond; eye += batterCond;
 
-  // Trait 加成（打者）
-  if (batter.traits.includes(i18n.powerHitter))   pow += 5;
-  if (batter.traits.includes('怪力'))              pow += 7;
-  if (batter.traits.includes(i18n.disciplined))    eye += 6;
-  if (batter.traits.includes('選球眼'))             eye += 7;
-  if (batter.traits.includes('低球打') && game.pitchPlan === 'breaking') contact += 4;
-  if (batter.traits.includes('對左強') && pitcher.throws === 'L') { contact += 6; pow += 4; }
-  if (batter.traits.includes('恐左')   && pitcher.throws === 'L') {
-    contact -= 8; pow -= 6;
-    game.addToLog(`${batter.name} 有恐左傾向，面對左投打擊下修。`);
-  }
-  if (batter.traits.includes('大心臟') && game.getCurrentRunners().some((r, idx) => r && idx >= 1)) {
-    contact += 7 + Math.round((batter.abilities.scoringPosition || 70) / 30);
+  // Trait 加成（打者）— v3.25：改為品階解鎖的「特質」名稱
+  if (batter.traits.includes('巨人之力'))   pow += 7;
+  if (batter.traits.includes('神之巧手'))   contact += 6;
+  if (batter.traits.includes('綠繡眼'))     eye += 7;
+  if (batter.traits.includes('剋左狂魔') && pitcher.throws === 'L') { contact += 7; pow += 5; }
+  if (batter.traits.includes('最終兵器') && game.getCurrentRunners().some((r, idx) => r && idx >= 1)) {
+    contact += 8;
     pow += 5;
-    game.addToLog(`${batter.name} 大心臟發動，得點圈有人時更冷靜。`);
+    game.addToLog(`${batter.name} 最終兵器啟動！得點圈火力大爆發。`);
   }
-  if (pitcher.traits.includes('滾地球投手')) pow -= 3;
+  if (batter.traits.includes('覺醒'))       { contact += 2; pow += 2; eye += 2; }
+  // 「恐左」「重砲手」「選球眼」等已改為天賦（純顯示），不再額外加成
   if (game.weather === i18n.rainy) spd *= 0.9;
   if (game.currentTactic === '情蒐奏效' && battingTeam === 'opponent') { contact -= 5; pow -= 4; }
 
   // 左右投加成
   if (pitcher.throws === 'L') contact += ((batter.abilities.vsLeft  || contact) - 70) / 4;
   else                         contact += ((batter.abilities.vsRight || contact) - 70) / 5;
+
+  // v3.25.4：特殊投法（下勾/側投）對打者的修正
+  if (pitcher._activeArmBonus) {
+    const b = pitcher._activeArmBonus;
+    if (batter.bats === 'R' && Number.isFinite(b.vsRightContact)) contact += b.vsRightContact;
+    if (batter.bats === 'L' && Number.isFinite(b.vsLeftContact))  contact += b.vsLeftContact;
+    if (game._lastArmSlotLog !== pitcher.name) {
+      game.addToLog(`${pitcher.name}（${b.label}）：${b.battleLog || ''}`);
+      game._lastArmSlotLog = pitcher.name;  // 同投手只報一次
+    }
+  }
 
   // 得點圈加成
   if (game.getCurrentRunners().some((r, idx) => r && idx >= 1)) {
@@ -4558,8 +5088,14 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
   };
 
   const pitchAimCellIndex = resolvePitchAimCell(game, battingTeam, activePitchPlan);
+  // v3.25.3：玩家投手時若有設定 pitchAimPosition（拖拉式 UI），優先使用
+  const aimPos = (battingTeam === 'opponent' && game.pitchAimPosition
+                  && Number.isFinite(game.pitchAimPosition.x))
+    ? game.pitchAimPosition
+    : null;
   const pitchConfig = {
     aimCellIndex: pitchAimCellIndex,
+    aimPosition:  aimPos,
     effortKey:    effort,
     pitchType:    selectedPitch
   };
@@ -4622,6 +5158,8 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     perceivedStrike:    swing?.perceivedStrike,
     isStrike:           pitch.isStrike,
     isWildPitch:        pitch.isWildPitch,
+    isControlLapse:     pitch.isControlLapse,   // v4.1 3B：高出力失控
+    wildChance:         pitch.wildChance,
     // 打擊端視覺化額外欄位（BatterVisualizer 使用）
     didSwing:           summary.swings ?? false,
     pitchOutcome:       summary.outcome ?? null,
@@ -4634,7 +5172,13 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
   if (shadowClone) triggerCloneEffect();
 
   const swings = summary.swings;
-  pitcher.consumeStamina(0.85 * (effort === 'full' ? 1.15 : effort === 'easy' ? 0.9 : 1));
+  // v4.1 3B：四段出力體力消耗（normal=1.0 不動；越紅越耗）
+  const effortStaminaMul = effort === 'max' ? 1.5 : effort === 'full' ? 1.15 : effort === 'easy' ? 0.9 : 1;
+  pitcher.consumeStamina(0.85 * effortStaminaMul);
+  // v4.1 3B：高出力失控提示
+  if (pitch.isControlLapse) {
+    game.addToLog(`⚠️ 出力過猛，${pitcher.name} 一時失控，球大幅跑偏！`);
+  }
   batter.consumeStamina((burnLife && battingTeam === 'player' ? 0.8 : 0.35) + (swings ? 0.15 : 0));
 
   // ── 8. finalizePitch 閉包（與原版相同）──────────────────────────────
@@ -4689,10 +5233,15 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
   const fieldingResolution = FieldingEngine.resolveInPlay({
     inPlay,
     stadium: DefenseStateBuilder.getCurrentStadium(game),
-    defense: DefenseStateBuilder.buildDefenseState(game, battingTeam),
+    defense: DefenseStateBuilder.buildDefenseState(
+      game,
+      battingTeam,
+      battingTeam === 'opponent' ? (game.defensiveShift || 'standard') : (game.opponentDefensiveShift || 'standard')
+    ),
     batter,
     runners,
     outs: game.outs,
+    advanceBonus: battingTeam === 'player' ? game.getRunnerAdvanceBonus() : 0,
     rng: Math.random,
     allowPhysicalFoul: false
   });
@@ -4759,6 +5308,18 @@ function bindGameplayControls(engine) {
     engine.dispatch('pitch.normal');
   });
 
+  // v4.1 #6：對決開始 — 唯一執行鈕，依 duelMode 路由（投球 / 牽制），設定與執行分離
+  bindEngineControl('duel-start', () => {
+    const activeGame = engine.getGame();
+    if (activeGame && activeGame.duelMode === 'pickoff') {
+      engine.dispatch('game.pickoff');
+      // 牽制執行後解除鎖定，回到投球模式
+      if (typeof activeGame.setDuelMode === 'function') activeGame.setDuelMode('pitch');
+    } else {
+      engine.dispatch('pitch.normal');
+    }
+  });
+
   bindEngineControl('magic-pitch', () => {
     engine.dispatch('pitch.magic');
   });
@@ -4771,8 +5332,14 @@ function bindGameplayControls(engine) {
     legacyAutoSimButton.dataset.engineBound = 'true';
   }
 
+  // v4.1 #6：牽制鈕改為「鎖定牽制」開關（設定），不再立即執行；由對決開始鈕執行
   bindEngineControl('pickoff', () => {
-    engine.dispatch('game.pickoff');
+    const activeGame = engine.getGame();
+    if (!activeGame || typeof activeGame.setDuelMode !== 'function') {
+      engine.dispatch('game.pickoff');
+      return;
+    }
+    activeGame.setDuelMode(activeGame.duelMode === 'pickoff' ? 'pitch' : 'pickoff');
   });
 
   bindEngineControl('steal-base', () => {
@@ -4806,6 +5373,10 @@ function bindGameplayControls(engine) {
   bindEngineControl('draw-international', () => {
     engine.dispatch('game.draw.international');
   });
+
+  bindEngineControl('draw-international-11', () => {
+    engine.dispatch('game.draw.international11');
+  });
 }
 
 function initializeGameRuntime() {
@@ -4828,9 +5399,16 @@ function initializeGameRuntime() {
   bindGameplayControls(gameEngine);
 
   // 詞法 `game` 已賦值，這時候才能安全地觸發第一次 UI 渲染。
-  // （Player.getRank() 等方法都依賴模組級的 `game` 變數。）
   if (typeof game.updateUI === 'function') {
     game.updateUI();
+  }
+
+  // v3.23：第一次進入遊戲播放主線序章；確保所有球員都有三軌養成欄位
+  if (typeof window.PlayerGrowth?.ensureGrowthFields === 'function') {
+    game.roster.players.forEach(p => window.PlayerGrowth.ensureGrowthFields(p));
+  }
+  if (typeof window.StoryIntro?.autoPlayIfNeeded === 'function') {
+    window.StoryIntro.autoPlayIfNeeded(game);
   }
   return game;
 }
@@ -4918,13 +5496,47 @@ function dropRosterLevel(event, targetLevel) {
   game.setPlayerLevel(index, targetLevel);
 }
 
-function showMatchSummary(result, playerScore, opponentScore, currency, heatReward = 0, standingsHTML = '') {
+function showMatchSummary(result, playerScore, opponentScore, currency, heatReward = 0, standingsHTML = '', matchStats = null, lineScore = null, playerHits = 0, opponentHits = 0, playerErrors = 0, opponentErrors = 0, opponentName = '對手') {
   const modal = document.getElementById('match-summary-modal');
-  document.getElementById('summary-result').textContent = `${i18n.matchSummary}: ${result}`;
+  // 結果標題
+  const resultMap = { Win: '勝利 🏆', Loss: '敗北', Tie: '平局' };
+  document.getElementById('summary-result').textContent = resultMap[result] || result;
+  document.getElementById('summary-result').className = `summary-result-title result-${(result||'').toLowerCase()}`;
   document.getElementById('summary-score').textContent = `${i18n.score}: ${playerScore} - ${opponentScore}`;
   document.getElementById('summary-reward').textContent = `${i18n.scoutsPoints}: ${currency}`;
   const heat = document.getElementById('summary-heat');
   if (heat) heat.textContent = `球場熱度收益：+${heatReward} SP`;
+  // 逐局記分板
+  const lsEl = document.getElementById('summary-linescore');
+  if (lsEl && lineScore) {
+    const inningNums = Array.from({length:9},(_,i)=>`<th>${i+1}</th>`).join('');
+    const playerRow = Array.from({length:9},(_,i)=>`<td>${lineScore.player?.[i]||0}</td>`).join('');
+    const oppRow = Array.from({length:9},(_,i)=>`<td>${lineScore.opponent?.[i]||0}</td>`).join('');
+    lsEl.innerHTML = `<table class="summary-ls-table"><thead><tr><th>隊伍</th>${inningNums}<th>R</th><th>H</th><th>E</th></tr></thead><tbody>
+      <tr><td class="team-name-cell">政大</td>${playerRow}<td>${playerScore}</td><td>${playerHits}</td><td>${playerErrors}</td></tr>
+      <tr><td class="team-name-cell">${opponentName}</td>${oppRow}<td>${opponentScore}</td><td>${opponentHits}</td><td>${opponentErrors}</td></tr>
+    </tbody></table>`;
+  }
+  // 賽事數據
+  const statsEl = document.getElementById('summary-stats');
+  if (statsEl && matchStats) {
+    statsEl.innerHTML = `<div class="summary-stats-grid">
+      <div class="stats-col"><strong>政大</strong><div>HR ${matchStats.playerHR}｜K ${matchStats.playerK}｜BB ${matchStats.playerBB}</div></div>
+      <div class="stats-col"><strong>${opponentName}</strong><div>HR ${matchStats.opponentHR}｜K ${matchStats.opponentK}｜BB ${matchStats.opponentBB}</div></div>
+    </div>`;
+  }
+  // 關鍵事件
+  const eventsEl = document.getElementById('summary-events');
+  if (eventsEl && matchStats?.keyEvents?.length) {
+    const halfLabel = h => h==='bottom' ? '下' : '上';
+    eventsEl.innerHTML = '<h4 class="summary-section-title">關鍵事件</h4><ul class="summary-events-list">' +
+      matchStats.keyEvents.slice(-8).map(e=>`<li>${e.inning}局${halfLabel(e.half)}｜${e.txt}</li>`).join('') +
+      '</ul>';
+    eventsEl.style.display = '';
+  } else if (eventsEl) {
+    eventsEl.style.display = 'none';
+  }
+  // 聯盟戰績
   const standings = document.getElementById('summary-standings');
   if (standings) standings.innerHTML = standingsHTML;
   modal.classList.remove('hidden');

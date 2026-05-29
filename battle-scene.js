@@ -167,6 +167,16 @@
     const phase = opts.phase || 'set';
     const u = s;
 
+    const ap = opts.appearance || {};
+    const skinColor = ap.color || PAL.skin;
+    const skinShade = ap.shade || PAL.skin_shade;
+    const eyeH    = ap.eyeHeight ?? 2;
+    const hasBrow = ap.hasBrow  || false;
+    const bw      = ap.bodyWidth ?? 1.0;
+    const ll      = ap.legLength ?? 1.0;
+    const beard   = ap.beard    || null;
+    const glasses = ap.glasses  || false;
+
     ctx.save();
     ctx.translate(PX(cx), PX(cy));
     ctx.scale(flip, 1);
@@ -209,22 +219,43 @@
     // 投球臂 + 球
     if (phase === 'windup') {
       block(ctx, 7 * u, -36 * u, 5 * u, 10 * u, C.shirt, PAL.outline, 1);
-      block(ctx, 10 * u, -40 * u, 4 * u, 7 * u, PAL.skin, PAL.outline, 1);
+      block(ctx, 10 * u, -40 * u, 4 * u, 7 * u, skinColor, PAL.outline, 1);
       rect(ctx, 12 * u, -42 * u, 4 * u, 4 * u, PAL.ball);
       rect(ctx, 13 * u, -41 * u, 2 * u, 1 * u, PAL.ball_seam);
     } else {
       block(ctx, 7 * u, -26 * u, 5 * u, 10 * u, C.shirt, PAL.outline, 1);
-      block(ctx, 9 * u, -18 * u, 4 * u, 5 * u, PAL.skin, PAL.outline, 1);
+      block(ctx, 9 * u, -18 * u, 4 * u, 5 * u, skinColor, PAL.outline, 1);
     }
 
     // 脖子
-    rect(ctx, -2 * u, -30 * u, 4 * u, 3 * u, PAL.skin);
+    rect(ctx, -2 * u, -30 * u, 4 * u, 3 * u, skinColor);
 
     // 頭
-    block(ctx, -7 * u, -42 * u, 14 * u, 12 * u, PAL.skin, PAL.outline, 1);
-    rect(ctx, -4 * u, -37 * u, 2 * u, 2 * u, PAL.outline);
-    rect(ctx,  2 * u, -37 * u, 2 * u, 2 * u, PAL.outline);
+    block(ctx, -7 * u, -42 * u, 14 * u, 12 * u, skinColor, PAL.outline, 1);
+    // 眉毛
+    if (hasBrow) {
+      rect(ctx, -4 * u, -39 * u, 3 * u, 1 * u, PAL.outline);
+      rect(ctx,  2 * u, -39 * u, 3 * u, 1 * u, PAL.outline);
+    }
+    // 眼睛（eyeH: 1=細長, 2=一般）
+    rect(ctx, -4 * u, -37 * u, 2 * u, eyeH * u, PAL.outline);
+    rect(ctx,  2 * u, -37 * u, 2 * u, eyeH * u, PAL.outline);
+    // 嘴
     rect(ctx, -2 * u, -33 * u, 4 * u, 1 * u, PAL.outline);
+    // 鬍子
+    if (beard === 'stubble') {
+      rect(ctx, -3 * u, -34 * u, 6 * u, 1 * u, skinShade);
+      rect(ctx, -2 * u, -33 * u, 4 * u, 1 * u, skinShade);
+    } else if (beard === 'goatee') {
+      rect(ctx, -2 * u, -33 * u, 4 * u, 2 * u, PAL.outline);
+    }
+    // 眼鏡
+    if (glasses === 'rect') {
+      ctx.strokeStyle = PAL.outline; ctx.lineWidth = 1;
+      ctx.strokeRect(PX(-5 * u), PX(-38 * u), PX(4 * u), PX(3 * u));
+      ctx.strokeRect(PX( 1 * u), PX(-38 * u), PX(4 * u), PX(3 * u));
+      rect(ctx, -1 * u, -37 * u, 2 * u, 1 * u, PAL.outline);
+    }
 
     // 帽
     block(ctx, -8 * u, -46 * u, 16 * u, 5 * u, C.cap, PAL.outline, 1);
@@ -248,6 +279,16 @@
     const flip = opts.facing === 'left' ? -1 : 1;
     const phase = opts.phase || 'ready';
     const u = s;
+
+    const ap = opts.appearance || {};
+    const skinColor = ap.color || PAL.skin;
+    const skinShade = ap.shade || PAL.skin_shade;
+    const eyeH    = ap.eyeHeight ?? 2;
+    const hasBrow = ap.hasBrow  || false;
+    const bw      = ap.bodyWidth ?? 1.0;
+    const ll      = ap.legLength ?? 1.0;
+    const beard   = ap.beard    || null;
+    const glasses = ap.glasses  || false;
 
     ctx.save();
     ctx.translate(PX(cx), PX(cy));
@@ -286,13 +327,34 @@
     }
 
     // 脖子
-    rect(ctx, -2 * u, -30 * u, 4 * u, 3 * u, PAL.skin);
+    rect(ctx, -2 * u, -30 * u, 4 * u, 3 * u, skinColor);
 
     // 頭
-    block(ctx, -7 * u, -42 * u, 14 * u, 12 * u, PAL.skin, PAL.outline, 1);
-    rect(ctx, -4 * u, -37 * u, 2 * u, 2 * u, PAL.outline);
-    rect(ctx,  2 * u, -37 * u, 2 * u, 2 * u, PAL.outline);
+    block(ctx, -7 * u, -42 * u, 14 * u, 12 * u, skinColor, PAL.outline, 1);
+    // 眉毛
+    if (hasBrow) {
+      rect(ctx, -4 * u, -39 * u, 3 * u, 1 * u, PAL.outline);
+      rect(ctx,  2 * u, -39 * u, 3 * u, 1 * u, PAL.outline);
+    }
+    // 眼睛（eyeH: 1=細長單眼皮, 2=一般, 3=大眼）
+    rect(ctx, -4 * u, -37 * u, 2 * u, eyeH * u, PAL.outline);
+    rect(ctx,  2 * u, -37 * u, 2 * u, eyeH * u, PAL.outline);
+    // 嘴
     rect(ctx, -2 * u, -33 * u, 4 * u, 1 * u, PAL.outline);
+    // 鬍子
+    if (beard === 'stubble') {
+      rect(ctx, -3 * u, -34 * u, 6 * u, 1 * u, skinShade);
+      rect(ctx, -2 * u, -33 * u, 4 * u, 1 * u, skinShade);
+    } else if (beard === 'goatee') {
+      rect(ctx, -2 * u, -33 * u, 4 * u, 2 * u, PAL.outline);
+    }
+    // 眼鏡
+    if (glasses === 'rect') {
+      ctx.strokeStyle = PAL.outline; ctx.lineWidth = 1;
+      ctx.strokeRect(PX(-5 * u), PX(-38 * u), PX(4 * u), PX(3 * u));
+      ctx.strokeRect(PX( 1 * u), PX(-38 * u), PX(4 * u), PX(3 * u));
+      rect(ctx, -1 * u, -37 * u, 2 * u, 1 * u, PAL.outline);
+    }
 
     // 頭盔
     block(ctx, -8 * u, -46 * u, 16 * u, 6 * u, C.helmet, PAL.outline, 1);
@@ -785,10 +847,13 @@
     drawHomePlate(ctx, plateCx, plateCy, W * 0.06, 14);
 
     const batterScale = Math.max(1.4, Math.min(2.4, W / 500));
+    const batterApp = (typeof getPlayerAppearance === 'function' && scene._batterName)
+      ? getPlayerAppearance(scene._batterName) : {};
     drawBatter(ctx, plateCx - 50 * batterScale, plateCy + 8, batterScale, {
-      team: 'home',
-      phase: scene._batterSwingPhase || 'ready',
-      number: scene._batterNumber,
+      team:       'home',
+      phase:      scene._batterSwingPhase || 'ready',
+      number:     scene._batterNumber,
+      appearance: batterApp,
     });
 
     if (scene._ballProgress > 0 && scene._ballProgress <= 1) {
@@ -914,13 +979,13 @@
       .map(label => ({ label, ...mapFieldPoint(enginePositions[label]) }));
     const positionsByLabel = Object.fromEntries(positions.map(p => [p.label, p]));
 
-    const ipctx = scene._lastInPlay || scene.game?.lastInPlayContext;
+    const ipctx = scene.game?.lastInPlayContext || scene._lastInPlay;
     const selected = ipctx?.fielding?.selected || null;
     const ballInfo = ipctx?.ballInfo || null;
     const playResult = ipctx?.playResult || null;
     const events = ipctx?.visualTimeline?.events || [];
     const ballArrives = events.find(e => e.type === 'ball_arrives') || null;
-    const fielderArrives = events.find(e => e.type === 'fielder_arrives') || null;
+    const fielderStarts = events.filter(e => e.type === 'fielder_start');
     const runnerStarts = events.filter(e => e.type === 'runner_start');
     const throwStarts = events.filter(e => e.type === 'throw_start');
     const now = performance.now();
@@ -930,9 +995,14 @@
     const timelineSec = (ipctx?.visualTimeline?.durationSec || ballInfo?.hangTimeSec || 2.2) * animT;
     const ballTargetPoint = ballArrives?.point || ballInfo?.landingPoint || selected?.playPoint || null;
     const ballTargetAt = ballArrives?.at || ballInfo?.hangTimeSec || ipctx?.visualTimeline?.durationSec || 2.2;
+    const minVisualBallAt = ballInfo?.ballType === 'ground' ? 1.15 : ballInfo?.ballType === 'liner' ? 1.45 : 1.85;
+    const visualBallTargetAt = Math.min(
+      Math.max(ballTargetAt, minVisualBallAt),
+      Math.max(minVisualBallAt, ipctx?.visualTimeline?.durationSec || ballTargetAt || minVisualBallAt)
+    );
     const landingScreen = ballTargetPoint ? mapFieldPoint(ballTargetPoint) : null;
-    const ballTravelT = ballTargetAt
-      ? Math.max(0, Math.min(1, timelineSec / ballTargetAt))
+    const ballTravelT = visualBallTargetAt
+      ? Math.max(0, Math.min(1, timelineSec / visualBallTargetAt))
       : animT;
     const easedBallT = easeOutQuad(ballTravelT);
 
@@ -1030,45 +1100,57 @@
       }
     });
 
-    let fielderScreen = null;
-    if (selected) {
-      const start = positionsByLabel[selected.position] || positionsByLabel.CF;
-      const target = mapFieldPoint(fielderArrives?.point || selected.playPoint || ballTargetPoint);
-      const fielderArrivalAt = fielderArrives?.at || selected.arrivalSec || ballTargetAt;
-      const fielderT = fielderArrivalAt
-        ? Math.max(0, Math.min(1, timelineSec / fielderArrivalAt))
-        : animT;
-      fielderScreen = {
-        x: start.x + (target.x - start.x) * easeOutQuad(fielderT),
-        y: start.y + (target.y - start.y) * easeOutQuad(fielderT)
+    const activeFielders = new Set(fielderStarts.map(event => event.fielder));
+
+    const fielderScale = Math.max(0.5, Math.min(0.85, W / 700));
+    positions.forEach(p => {
+      if (activeFielders.has(p.label)) return;
+      drawFielder(ctx, p.x, p.y, fielderScale, { team: 'home', label: p.label, position: p.label, state: 'idle' });
+    });
+
+    fielderStarts.forEach(startEvent => {
+      const arriveEvent = events.find(e =>
+        e.type === 'fielder_arrives'
+        && e.fielder === startEvent.fielder
+        && e.role === startEvent.role
+        && e.at >= startEvent.at
+      );
+      const fallbackStart = positionsByLabel[startEvent.fielder] || positionsByLabel.CF;
+      const start = startEvent.point ? mapFieldPoint(startEvent.point) : fallbackStart;
+      const target = mapFieldPoint(arriveEvent?.point || startEvent.targetPoint || ballTargetPoint);
+      const arriveAt = arriveEvent?.at || startEvent.arrivesAt || selected?.arrivalSec || ballTargetAt || 1;
+      const moveT = Math.max(0, Math.min(1, timelineSec / Math.max(0.1, arriveAt)));
+      const easedMove = easeOutQuad(moveT);
+      const fielderScreen = {
+        x: start.x + (target.x - start.x) * easedMove,
+        y: start.y + (target.y - start.y) * easedMove
       };
-      ctx.strokeStyle = 'rgba(251,191,36,0.62)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
+      const isSelected = selected && startEvent.fielder === selected.position && startEvent.role === 'selected';
+      ctx.strokeStyle = isSelected ? 'rgba(251,191,36,0.62)' : 'rgba(255,255,255,0.36)';
+      ctx.lineWidth = isSelected ? 2 : 1.5;
+      ctx.setLineDash(isSelected ? [4, 3] : [2, 4]);
       ctx.beginPath();
       ctx.moveTo(start.x, start.y);
       ctx.lineTo(target.x, target.y);
       ctx.stroke();
       ctx.setLineDash([]);
-    }
 
-    const fielderScale = Math.max(0.5, Math.min(0.85, W / 700));
-    positions.forEach(p => {
-      if (selected && p.label === selected.position) return;
-      drawFielder(ctx, p.x, p.y, fielderScale, { team: 'home', label: p.label, position: p.label, state: 'idle' });
-    });
-
-    if (fielderScreen && selected) {
-      const fielderState = ballTravelT < 0.92 ? 'run' : playResult?.code === 'hit' ? 'miss' : 'field';
-      drawFielder(ctx, fielderScreen.x, fielderScreen.y, fielderScale * 1.08, {
+      const fielderState = moveT < 0.92
+        ? 'run'
+        : startEvent.outcome === 'field'
+          ? 'field'
+          : startEvent.outcome === 'miss' || startEvent.outcome === 'chase'
+            ? 'miss'
+            : 'idle';
+      drawFielder(ctx, fielderScreen.x, fielderScreen.y, fielderScale * (isSelected ? 1.08 : 0.96), {
         team: 'home',
-        label: selected.position,
-        position: selected.position,
-        player: selected.player || null,
-        selected: true,
+        label: startEvent.fielder,
+        position: startEvent.fielder,
+        player: isSelected ? selected.player || null : null,
+        selected: isSelected,
         state: fielderState
       });
-    }
+    });
 
     if (landingScreen) {
       const liftRatio = ballInfo?.ballType === 'ground' ? 0.03 : ballInfo?.ballType === 'liner' ? 0.14 : 0.28;
@@ -1181,7 +1263,9 @@
         const matchup = typeof g.getCurrentMatchup === 'function'
           ? g.getCurrentMatchup() : { pitcher: g.pitcher, batter: g.batter };
         if (matchup?.pitcher?.uniformNo != null) this._pitcherNumber = matchup.pitcher.uniformNo;
-        if (matchup?.batter?.uniformNo != null)  this._batterNumber  = matchup.batter.uniformNo;
+        if (matchup?.batter?.uniformNo  != null) this._batterNumber  = matchup.batter.uniformNo;
+        if (matchup?.pitcher?.name      != null) this._pitcherName   = matchup.pitcher.name;
+        if (matchup?.batter?.name       != null) this._batterName    = matchup.batter.name;
       } catch (_) {}
 
       const pctx = g.lastPitchContext;
@@ -1197,8 +1281,8 @@
         this._view = 'fielding';
         const durationSec = ipctx.visualTimeline?.durationSec || ipctx.ballInfo?.hangTimeSec || 2.2;
         this._fieldingStartTime = performance.now();
-        this._fieldingDurationMs = Math.max(1600, Math.min(4200, durationSec * 950));
-        this._viewTimer = this._fieldingStartTime + this._fieldingDurationMs + 900;
+        this._fieldingDurationMs = Math.max(2200, Math.min(5600, durationSec * 1150));
+        this._viewTimer = this._fieldingStartTime + this._fieldingDurationMs + 1100;
       }
 
       if (this._view === 'idle' && g.pitcher && g.batter) {

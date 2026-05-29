@@ -122,6 +122,7 @@
       // 投手魔力、幣、分數
       this.setText('mana',           matchup.pitcher?.state?.mana ?? 0);
       this.setText('currency',       game.currency);
+      this.setText('gold-baseball',  game.goldBaseball ?? 0);
       this.setText('score-player',   game.playerScore);
       this.setText('score-opponent', game.opponentScore);
 

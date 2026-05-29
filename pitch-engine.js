@@ -79,8 +79,28 @@
   };
 
   const GRADE_MOVE_SCALE = { S: 1.15, A: 1.08, B: 1.03, C: 1.00, D: 0.94, E: 0.88 };
-  const EFFORT_MOVE_SCALE = { full: 1.05, normal: 1.0, easy: 0.94 };
+  // v4.1 3B：四段出力（藍 easy / 綠 normal / 黃 full / 紅 max）。
+  // ⚠️ normal 一律維持 1.0 / 0，確保打者 sim baseline（effortKey:'normal'）不受影響。
+  const EFFORT_MOVE_SCALE = { easy: 0.94, normal: 1.0, full: 1.05, max: 1.10 };
+  // 速度倍率：套到 _estimateSpeedKmh（越紅球速越快）。
+  const EFFORT_VELO_SCALE = { easy: 0.97, normal: 1.0, full: 1.04, max: 1.08 };
+  // 失控強度：只在高出力檔（黃小、紅大），normal/easy = 0 不失控。
+  const EFFORT_WILD_FACTOR = { easy: 0, normal: 0, full: 0.4, max: 1.0 };
   const FAST_PITCH_TOKENS = ['四縫', '二縫', '卡特', '切球', '伸卡', '速叉', '快速指叉'];
+
+  // 球種速度係數（v3.26）：velocity 能力值 → maxSpeed → 各球種實際球速 = maxSpeed × ratio
+  const PITCH_SPEED_RATIO = {
+    '四縫線': 1.00,
+    '二縫線': 0.96,
+    '卡特球': 0.91,
+    '切球':   0.91,
+    '伸卡球': 0.96,
+    '滑球':   0.84,
+    '變速球': 0.83,
+    '指叉':   0.85,
+    '快速指叉':0.85,
+    '曲球':   0.77
+  };
 
   const STRATEGY_PROFILES = {
     standard:  { label: '標準',      radiusDelta: 0,   contactMod: 0,   powerMod: 0,   eyeMod: 0,   chaseBonus: 0,     whiffDelta: 0,     foulDelta: 0,    inPlayDelta: 0    },
@@ -124,10 +144,33 @@
   }
 
   function normalizeEffortKey(value) {
-    if (value === 'full' || value === 'normal' || value === 'easy') return value;
+    if (value === 'full' || value === 'normal' || value === 'easy' || value === 'max') return value;
     if (value === '全力') return 'full';
     if (value === '輕鬆') return 'easy';
+    if (value === '爆發' || value === '全開') return 'max';
     return 'normal';
+  }
+
+  /** 中文球種名稱 → FF/SI/FC/SL/CU/CH/FS（回傳 null 表示未知） */
+  function classifyPitchTypeCode(pitchName) {
+    const n = String(pitchName || '');
+    if (n.includes('四縫') || n.includes('直球') || n.includes('速球')) return 'FF';
+    if (n.includes('伸卡') || n.includes('二縫'))                        return 'SI';
+    if (n.includes('卡特') || n.includes('切球'))                        return 'FC';
+    if (n.includes('滑球') || n.includes('橫掃'))                        return 'SL';
+    if (n.includes('曲'))                                                 return 'CU';
+    if (n.includes('變速'))                                               return 'CH';
+    if (n.includes('指叉') || n.includes('速叉') || n.includes('叉球'))  return 'FS';
+    return null;
+  }
+
+  /** 最終位置 → core / edge / chase / invalid（以好球帶半徑 22.5 cm 為基準） */
+  function classifyPlateZone(pos) {
+    const d = Math.max(Math.abs(pos.x), Math.abs(pos.y));
+    if (d <= 11.25) return 'core';    // 好球帶內半
+    if (d <= 22.5)  return 'edge';    // 好球帶外緣
+    if (d <= 33.75) return 'chase';   // 好球帶外 0.5 倍寬（追打區）
+    return 'invalid';                 // 遠離好球帶
   }
 
   // ─────────────────────────────────────────────
@@ -158,14 +201,35 @@
       const effortKey   = normalizeEffortKey(pitchConfig.effortKey ?? 'normal');
       const aimIndex    = pitchConfig.aimCellIndex ?? 12; // 預設瞄準 5x5 中心
 
-      // 1. 計算原始位置（5x5 格子中心）
-      const originalTarget = getGridCenter(aimIndex, GEOMETRY.pitcherAimSize);
+      // 1. 計算原始位置（v3.25.3：aimPosition 優先，否則用 5x5 格中心）
+      const originalTarget = (pitchConfig.aimPosition
+          && Number.isFinite(pitchConfig.aimPosition.x)
+          && Number.isFinite(pitchConfig.aimPosition.y))
+        ? { x: pitchConfig.aimPosition.x, y: pitchConfig.aimPosition.y }
+        : getGridCenter(aimIndex, GEOMETRY.pitcherAimSize);
 
       // 2. 控球隨機偏差（截斷高斯，§17.4）
       const missOffset = this._sampleMissOffset(ctrl);
+
+      // 2b. v4.1 3B：高出力失控（只在 full/max；控球越差、越紅越易失控）
+      //     normal/easy → wildFactor 0 → 完全不觸發，打者 sim baseline 不受影響。
+      const wildFactor = EFFORT_WILD_FACTOR[effortKey] ?? 0;
+      let wildOffset = { dx: 0, dy: 0 };
+      let isControlLapse = false;
+      let wildChance = 0;
+      if (wildFactor > 0) {
+        // ctrl 50 → 高機率；ctrl 90 → 低機率。乘以該檔強度。
+        wildChance = MathUtils.clamp((0.05 + (80 - ctrl) * 0.007) * wildFactor, 0, 0.5);
+        if (MathUtils.randomBetween(0, 1) < wildChance) {
+          isControlLapse = true;
+          const mag = MathUtils.randomBetween(11, 27) * wildFactor;  // 大幅偏移（暴投級）
+          const ang = MathUtils.randomBetween(0, Math.PI * 2);
+          wildOffset = { dx: Math.cos(ang) * mag, dy: Math.sin(ang) * mag };
+        }
+      }
       const postMiss = {
-        x: originalTarget.x + missOffset.dx,
-        y: originalTarget.y + missOffset.dy
+        x: originalTarget.x + missOffset.dx + wildOffset.dx,
+        y: originalTarget.y + missOffset.dy + wildOffset.dy
       };
 
       // 3. 球路變化量縮放係數
@@ -192,8 +256,8 @@
       const dy = Math.max(Math.abs(finalPosition.y) - GEOMETRY.strikeHalf, 0);
       const isStrike = (dx * dx + dy * dy) <= (GEOMETRY.ballRadiusCm * GEOMETRY.ballRadiusCm);
 
-      // 7. 球速估算
-      const speedKmh = this._estimateSpeedKmh(pitcherStats, pitchConfig.pitchType);
+      // 7. 球速估算（v4.1 3B：套四段出力速度倍率，normal=1.0 不動 baseline）
+      const speedKmh = this._estimateSpeedKmh(pitcherStats, pitchConfig.pitchType, effortKey);
 
       return {
         originalTarget,
@@ -210,6 +274,8 @@
         stuffGrade,
         speedKmh,
         effortKey,
+        isControlLapse,   // v4.1 3B：本球是否高出力失控（暴投級偏移）
+        wildChance,       // 當下失控機率（debug/UI 用）
         aimCellIndex: aimIndex
       };
     },
@@ -257,9 +323,12 @@
       return { xMin: -0.12*spread, xMax: 0.12*spread, yMin: -0.15*spread, yMax: 0.1*spread };
     },
 
-    _estimateSpeedKmh(pitcherStats, pitch) {
-      const base = Number.isFinite(pitch?.speed) ? pitch.speed : (pitcherStats.velocity ?? 75);
-      return MathUtils.clamp(112 + base * 0.6 + MathUtils.gaussianRandom(0, 1.8), 100, 170);
+    _estimateSpeedKmh(pitcherStats, pitch, effortKey = 'normal') {
+      const velocity = Number.isFinite(pitcherStats?.velocity) ? pitcherStats.velocity : 75;
+      const maxSpeed = 112 + velocity * 0.6;
+      const ratio = (pitch && pitch.name && PITCH_SPEED_RATIO[pitch.name]) || 1.0;
+      const effortMul = EFFORT_VELO_SCALE[effortKey] ?? 1;  // v4.1 3B（normal=1.0）
+      return MathUtils.clamp(maxSpeed * ratio * effortMul + MathUtils.gaussianRandom(0, 1.5), 95, 175);
     }
   };
 
@@ -283,15 +352,16 @@
    */
   const BatterJudgmentModule = {
     decide(batterStats, pitchState, battingConfig) {
-      const { originalTarget, movementMag } = pitchState;
+      const { originalTarget, finalPosition, movementMag } = pitchState;
       const strategyKey   = battingConfig.strategyKey ?? 'standard';
       const strategy      = STRATEGY_PROFILES[strategyKey] ?? STRATEGY_PROFILES.standard;
       const strikes       = MathUtils.clamp(battingConfig.strikes ?? 0, 0, 2);
+      const balls         = MathUtils.clamp(battingConfig.balls   ?? 0, 0, 3);
       const velocityLock  = battingConfig.velocityLock ?? 'none';
       const pitchSpeedGroup = battingConfig.pitchSpeedGroup ?? 'fast';
 
-      // 球速鎖定修正（§17.7）
-      const timingMod = this._resolveTimingMod(velocityLock, pitchSpeedGroup);
+      // 球速鎖定修正（§17.7）+ timing 歷史資料修正
+      const timingMod = this._resolveTimingMod(velocityLock, pitchSpeedGroup, batterStats?.advancedStats?.timing);
 
       // 打者有效 eye（已含 timingMod 與 strategyEyeBonus）
       const effectiveEye = MathUtils.clamp(
@@ -301,52 +371,83 @@
 
       // 目標格中心（3x3 好球帶格子）
       const targetZoneCenter = getGridCenter(battingConfig.targetZoneIndex ?? 4, GEOMETRY.strikeBandSize);
+      const judgmentPosition = finalPosition || originalTarget;
 
       // 核心距離量
-      const centerDist  = Math.hypot(originalTarget.x, originalTarget.y);
-      const targetDist  = Math.hypot(originalTarget.x - targetZoneCenter.x, originalTarget.y - targetZoneCenter.y);
+      const centerDist  = Math.hypot(judgmentPosition.x, judgmentPosition.y);
+      const targetDist  = Math.hypot(judgmentPosition.x - targetZoneCenter.x, judgmentPosition.y - targetZoneCenter.y);
       const edgePenalty = MathUtils.clamp((centerDist - 18) / 35, 0, 0.22);
 
-      // 正確判斷機率（§17.6）
+      // 正確判斷機率（§17.6）— v1.4 提升：baseline 0.62→0.66、斜率 /140→/130
+      // 理由：站著被叫好球比例過高（每球 21.5%），K% 多出來主因
       const pCorrectRead = MathUtils.clamp(
-        0.50
-        + (effectiveEye - 50) / 120
-        - movementMag / 170
-        - edgePenalty,
-        0.15, 0.92
+        0.66
+        + (effectiveEye - 50) / 130
+        - movementMag / 230
+        - edgePenalty * 0.65,
+        0.18, 0.94
       );
 
       // 打者「感知」好壞球
-      const originalInStrike = Math.abs(originalTarget.x) <= GEOMETRY.strikeHalf
-                            && Math.abs(originalTarget.y) <= GEOMETRY.strikeHalf;
-      const perceivedStrike = originalInStrike
+      const actualInStrike = Math.abs(judgmentPosition.x) <= GEOMETRY.strikeHalf
+                          && Math.abs(judgmentPosition.y) <= GEOMETRY.strikeHalf;
+      const perceivedStrike = actualInStrike
         ? Math.random() < pCorrectRead
         : Math.random() < (1 - pCorrectRead);
 
       // 有效出棒半徑（§17.6 策略出棒區）
-      const effectiveSwingRadius = 24 + strategy.radiusDelta;
+      const twoStrikeStandard = strategyKey === 'standard' && strikes === 2;
+      const standardZoneCoverage = strategyKey === 'standard' && actualInStrike ? 14 : 0;
+      const twoStrikeCoverage = twoStrikeStandard ? (actualInStrike ? 10 : 2) : 0;
+      const effectiveSwingRadius = 24 + strategy.radiusDelta + standardZoneCoverage + twoStrikeCoverage;
 
-      // 追打率（壞球出棒）
+      // 追打率（壞球出棒）— v1.2 重校：以 P50 eye=82 為樞紐，配合 CPBL 真實 discipline 分布（70-95）
       let chaseProb = MathUtils.clamp(
-        0.22 + strategy.chaseBonus - effectiveEye / 180 + movementMag / 220,
-        0.03, 0.55
+        0.13
+        - (effectiveEye - 82) * 0.011
+        + movementMag / 280
+        + strategy.chaseBonus,
+        0.04, 0.42
       );
       if (strikes === 2 && strategyKey === 'protect') {
-        chaseProb = MathUtils.clamp(chaseProb + 0.06, 0.03, 0.62);
+        chaseProb = MathUtils.clamp(chaseProb + 0.08, 0.04, 0.55);
+      } else if (twoStrikeStandard) {
+        chaseProb = MathUtils.clamp(chaseProb + 0.05, 0.04, 0.55);
+      }
+      // swingByCount：依球數情境歷史攻擊率微調追打傾向
+      const swingCountData = batterStats?.advancedStats?.swingByCount?.[`${balls}-${strikes}`];
+      if (swingCountData && Number.isFinite(Number(swingCountData.swingRate))) {
+        chaseProb = MathUtils.clamp(chaseProb + (Number(swingCountData.swingRate) - 0.47) * 0.30, 0.04, 0.55);
       }
 
-      // 出棒決策（§17.6）
+      // 出棒決策（§17.6）— v1.3 重寫：感知好球也機率性出棒（不再 hard true）
+      // 距 target 越近 → 越會揮；兩好球 → 多揮；精眼 → 略保守
       let swings = false;
       if (perceivedStrike) {
         if (targetDist <= effectiveSwingRadius) {
-          swings = true;
+          const distRatio = MathUtils.clamp(targetDist / Math.max(effectiveSwingRadius, 1), 0, 1);
+          const zoneSwingProb = MathUtils.clamp(
+            0.88
+            - distRatio * 0.40
+            + strategy.chaseBonus * 0.3
+            + (strikes === 2 ? 0.12 : 0)
+            - (effectiveEye - 82) / 250,
+            0.30, 0.95
+          );
+          swings = Math.random() < zoneSwingProb;
         } else if (['tightZone', 'patient', 'power'].includes(strategyKey)) {
           swings = false;
         } else {
-          swings = Math.random() < MathUtils.clamp(0.58 + strategy.chaseBonus - effectiveEye / 260, 0.08, 0.68);
+          // v1.4：misread chase（感知好球但遠離 target zone）改為低機率出棒
+          // 舊公式 0.58 - eye/260 在 eye=80 算出 0.27，導致 chase rate 卡在 35%
+          swings = Math.random() < MathUtils.clamp(0.42 + strategy.chaseBonus * 0.5 - effectiveEye / 300, 0.05, 0.55);
         }
-      } else if (strategyKey === 'protect' || strategyKey === 'aggressive') {
+      } else {
+        // 感知為壞球 — 所有策略都套用 chaseProb（patient/tightZone 透過 chaseBonus 自動降低）
         swings = Math.random() < chaseProb;
+      }
+      if (!swings && twoStrikeStandard && actualInStrike) {
+        swings = Math.random() < 0.70;
       }
 
       return {
@@ -363,13 +464,27 @@
       };
     },
 
-    /** §17.7 球速鎖定修正 */
-    _resolveTimingMod(lockMode, pitchSpeedGroup) {
+    /** §17.7 球速鎖定修正 + timing 歷史資料修正 */
+    _resolveTimingMod(lockMode, pitchSpeedGroup, timingData) {
       if (lockMode === 'none') return { contact: 0, power: 0, eye: 0, matched: null };
-      const matched = lockMode === pitchSpeedGroup;
-      return matched
-        ? { contact: 8, power: 4, eye: 0, matched: true }
-        : { contact: -14, power: -8, eye: -3, matched: false };
+      const matched     = lockMode === pitchSpeedGroup;
+      const baseContact = matched ? 8 : -14;
+      const basePower   = matched ? 4 : -8;
+      const baseEye     = matched ? 0 : -3;
+      // badPct = latePct + earlyPct；基準值 0.50，每偏移 0.10 調整 ±1.2 分
+      let timingAdj = 0;
+      if (timingData) {
+        const lpKey  = pitchSpeedGroup === 'fast' ? 'fastLatePct'  : 'slowLatePct';
+        const epKey  = pitchSpeedGroup === 'fast' ? 'fastEarlyPct' : 'slowEarlyPct';
+        const badPct = (Number(timingData[lpKey]) || 0) + (Number(timingData[epKey]) || 0);
+        timingAdj = -(badPct - 0.50) * 12;
+      }
+      return {
+        contact: MathUtils.clamp(baseContact + timingAdj, -18, 12),
+        power:   basePower,
+        eye:     baseEye,
+        matched
+      };
     }
   };
 
@@ -430,15 +545,41 @@
 
       const contactQuality = MathUtils.clamp((finalContactScore - 45) / 50, 0, 1);
 
-      // §17.9 三路機率
-      let whiffProb  = MathUtils.clamp(0.48 - contactQuality * 0.34 + pitchStuffPenalty / 160, 0.08, 0.65) + strategy.whiffDelta;
+      // §17.9 三路機率 — v1.4 退一半校：baseline 0.27（介於 0.23 與 0.32），stuff 影響 /250（介於 /300 與 /180）
+      let whiffProb  = MathUtils.clamp(0.27 - contactQuality * 0.20 + pitchStuffPenalty / 250, 0.03, 0.45) + strategy.whiffDelta;
       let inPlayProb = MathUtils.clamp(0.18 + contactQuality * 0.46, 0.10, 0.72) + strategy.inPlayDelta;
       let foulProb   = (1 - whiffProb - inPlayProb) + strategy.foulDelta;
 
-      // 兩好球修正
+      // plateDiscipline 四區歷史比率混合（30%，需 ≥20 球樣本）
+      const plateZone = classifyPlateZone(finalPosition);
+      const pdZone = batterStats?.advancedStats?.plateDiscipline?.[plateZone];
+      if (pdZone && (pdZone.pitches ?? 0) >= 20
+          && Number.isFinite(Number(pdZone.whiffRate)) && Number.isFinite(Number(pdZone.inPlayRate))) {
+        const pdW = Number(pdZone.whiffRate);
+        const pdI = Number(pdZone.inPlayRate);
+        const pdF = Math.max(0, 1 - pdW - pdI);
+        whiffProb  = whiffProb  * 0.70 + pdW * 0.30;
+        inPlayProb = inPlayProb * 0.70 + pdI * 0.30;
+        foulProb   = foulProb   * 0.70 + pdF * 0.30;
+      }
+
+      // pitchTypeMatchup 球種歷史比率混合（25%，需 ≥15 球樣本）
+      const ptCode  = battingConfig.pitchTypeCode;
+      const ptMatch = ptCode ? batterStats?.advancedStats?.pitchTypeMatchup?.[ptCode] : null;
+      if (ptMatch && (ptMatch.seen ?? 0) >= 15
+          && Number.isFinite(Number(ptMatch.whiffRate)) && Number.isFinite(Number(ptMatch.inPlayRate))) {
+        const ptW = Number(ptMatch.whiffRate);
+        const ptI = Number(ptMatch.inPlayRate);
+        const ptF = Math.max(0, 1 - ptW - ptI);
+        whiffProb  = whiffProb  * 0.75 + ptW * 0.25;
+        inPlayProb = inPlayProb * 0.75 + ptI * 0.25;
+        foulProb   = foulProb   * 0.75 + ptF * 0.25;
+      }
+
+      // 兩好球修正 — v1.4 微緩和：whiff -0.13（介於 -0.08 與 -0.16），foul +0.08
       if (strikes === 2) {
-        whiffProb  = MathUtils.clamp(whiffProb  - 0.04, 0.05, 0.62);
-        foulProb   = MathUtils.clamp(foulProb   + 0.06, 0.18, 0.78);
+        whiffProb  = MathUtils.clamp(whiffProb  - 0.13, 0.02, 0.45);
+        foulProb   = MathUtils.clamp(foulProb   + 0.08, 0.18, 0.78);
         inPlayProb = MathUtils.clamp(1 - whiffProb - foulProb, 0.08, 0.70);
       }
 
@@ -532,18 +673,33 @@
       const { effectivePower, finalContactScore, contactQuality } = contactResult;
       const { finalPosition, stuffScore, speedKmh, effortKey } = pitchState;
 
-      // EV（§17.11）
-      const evKmh = MathUtils.clamp(
-        92
-        + effectivePower * 0.62
-        + (finalContactScore - 50) * 0.28
-        + MathUtils.gaussianRandom(0, 6),
-        40, 190
-      );
-
-      // 擊球型態與角度
+      // 擊球型態與角度（先算，因為 v1.5「深」改動後 EV 與仰角耦合）
       const battedBallTypeHint = this._sampleBattedBallType(batterStats);
       const angles = this._generateAngles(batterStats, finalPosition, battedBallTypeHint, contactQuality);
+
+      // EV（§17.11 → v1.5「深」改動：擊球品質驅動的分布，取代舊「power 平均 + N(0,6)」點估計）
+      //   失真診斷（檢討書 §B/C、修正書 §13）：真實 in-play EV 是有寬度、含偏度的分布且與仰角耦合，
+      //   舊公式把它壓成「平均 ± 6」的點，導致魔鷹每球都吃 barrel EV ~153（> HR 閾值）→ HR 2x，
+      //   林泓弦缺弱擊球團塊 → BABIP 高估。五原則修正：
+      //   1. ceilingEv = power 驅動的「咬死潛力」（≈ core.avgEV，保留升級成長性）
+      //   2. anchorMean = ceiling − 擊不準稅，靠攏真實 ballQuality.avgEV（魔鷹 153→~146，落到 HR 閾值下）
+      //   3. 寬度由真實 (maxEV − avgEV) 決定（σ ≈ spread×0.34 ≈ 12-15，取代假的 σ=6）
+      //   4. 右偏：上尾長（barrel 罕見，HR 只從尾巴出）、下尾緊（弱擊球團塊）
+      //   5. 仰角耦合（均值≈0 的重分配）：LA 接近 14° 加成、偏離越大扣越多 → 修「每個飛球都吃 barrel EV」
+      const bq = batterStats?.advancedStats?.ballQuality || {};
+      const ceilingEv = 92 + effectivePower * 0.68 + (finalContactScore - 50) * 0.28;
+      const realAvg = Number.isFinite(bq.avgEV) ? bq.avgEV : ceilingEv - 7;
+      const realMax = Number.isFinite(bq.maxEV) ? bq.maxEV : realAvg + 36;
+      const spread = MathUtils.clamp(realMax - realAvg, 18, 45);
+      // anchor：以 power ceiling 為基準（升級時上移）並靠攏真實 in-play 平均
+      const anchorMean = 0.55 * (ceilingEv - 7) + 0.45 * realAvg;
+      // 右偏寬度：上尾較寬（barrel 尾巴）、下尾較緊（弱擊球團塊）
+      const z = MathUtils.gaussianRandom(0, 1);
+      const evNoise = z >= 0 ? z * spread * 0.42 : z * spread * 0.30;
+      // 仰角耦合（均值≈0 的重分配）：LA 偏離 14° 越多扣越多，扣回各球種平均 shave 使整體均值不偏移
+      const laShave = MathUtils.clamp(Math.abs(angles.launch - 14) * 0.42, 0, 16);
+      const laAdj = -(laShave - 6);
+      const evKmh = MathUtils.clamp(anchorMean + evNoise + laAdj, 40, 190);
 
       return {
         evKmh: Math.round(evKmh * 10) / 10,
@@ -618,8 +774,9 @@
    *   pitcherStats  { control, velocity, breaking, stuffScore, fatigue, pitchTypes, throws }
    *   pitchConfig   { aimCellIndex, effortKey, pitchType }
    *   batterStats   { contact, power, eye, bats, advancedStats }
-   *   battingConfig { strategyKey, targetZoneIndex, velocityLock, pitchSpeedGroup, strikes,
+   *   battingConfig { strategyKey, targetZoneIndex, velocityLock, pitchSpeedGroup, strikes, balls,
    *                   hotZoneMod, situationalContactMod }
+   *   （pitchTypeCode 由內部 classifyPitchTypeCode 自動計算，無需外部傳入）
    *
    * @returns {SinglePitchResult}
    *   pitch, swing, contact (null 若未出棒), inPlay (null 若未進場),
@@ -634,14 +791,18 @@
       // 1. 投球位置生成
       const pitch = PitchPhysicsModule.generate(pitcherStats, pitchConfig);
 
-      // 2. 打者判斷（注入 pitchSpeedGroup）
+      // 2. 打者判斷（注入 pitchSpeedGroup / pitchTypeCode）
       const pitchSpeedGroup = classifyPitchSpeedGroup(
+        pitchConfig.pitchType?.name || pitchConfig.pitchTypeName || ''
+      );
+      const pitchTypeCode = classifyPitchTypeCode(
         pitchConfig.pitchType?.name || pitchConfig.pitchTypeName || ''
       );
       const swing = BatterJudgmentModule.decide(batterStats, pitch, {
         ...battingConfig,
         pitchSpeedGroup,
-        strikes
+        strikes,
+        balls
       });
 
       // 3. 不出棒 → 單純球數推進
@@ -684,7 +845,7 @@
       // 4. 出棒 → Contact 分流
       const contact = ContactResolutionModule.resolve(
         batterStats, pitch, swing,
-        { ...battingConfig, strikes }
+        { ...battingConfig, strikes, pitchTypeCode }
       );
 
       // 5. 保送 / 三振判定（contact 結果可能帶入新 strikes）
@@ -746,8 +907,17 @@
     /** 輔助：將球種名稱分類為快/慢 */
     classifyPitchSpeedGroup,
 
+    /** 輔助：中文球種名稱 → FF/SI/FC/SL/CU/CH/FS */
+    classifyPitchTypeCode,
+
+    /** 輔助：最終位置 → core/edge/chase/invalid */
+    classifyPlateZone,
+
     /** 輔助：格子中心座標 */
-    getGridCenter: (index, size) => getGridCenter(index, size)
+    getGridCenter: (index, size) => getGridCenter(index, size),
+
+    /** 球種速度係數（v3.26）：各球種相對於極速的比例 */
+    PITCH_SPEED_RATIO
   };
 
   // 向後相容：舊版 game.js 仍可透過 window.PitchPhysicsModule 等名稱訪問
