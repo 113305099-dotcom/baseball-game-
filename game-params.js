@@ -287,7 +287,70 @@
       // 雙能力複合特質（需要高品階）
       { id: 'absolute_ace',  name: '絕對王牌',   side: 'P', unlocker: 'stuff',      min: 86, minRank: 4, secondary: { key: 'crisis', min: 82 }, effect: { control: 5, breaking: 4 }, desc: '高 leverage 時 ctrl +5、break +4（需鑽石階）' },
       { id: 'awakening',     name: '覺醒',       side: 'BP', unlocker: 'any',       min: 0,  minRank: 6, effect: { allAbilities: 2 }, desc: '宗師階質變：全能力 +2（必殺技預留）' }
-    ]
+    ],
+
+    // ──────────────────────────────────────────────────────────────
+    // 10. 投手 9 通道對稱化係數（投打對決修正書 §16）
+    //     目的：讓投手能力「進得了引擎」，解開「9 大能力擠 stuffScore 一條通道」的架構失衡。
+    //     pitch-engine.js 內建同名預設值；若本檔（GAME_PARAMS）已載入，會覆寫引擎預設值。
+    //     ⚠️ sim-tester.html 不載入本檔 → 引擎用內建預設，故兩處數值必須保持一致。
+    // ──────────────────────────────────────────────────────────────
+    pitcherChannels: {
+      // Wave A — 通道 4 配套：plateDiscipline 30% 混合段對投手 stuffScore 動態化。
+      //   強投手放大「打者 whiffRate 預期」、縮小「inPlayRate 預期」，
+      //   等於告訴混合公式「這個打者面對的不是平均投手」，不再被打者 PA 平均攤稀。
+      stuffMulCoef: 0.008,   // stuff 70 → ×1.00、50 → ×0.84、90 → ×1.16
+
+      // Wave B — 通道 2（control→BB9）真正修法：壞球率隨控球變、樞紐 control=70（§16.14）。
+      //   ⚠️ §16 原設計的 missOffset 路線已試並退回（BB9 R² 反崩 0.146→0.012，保送非由投球落點決定）。
+      //   壞球率＝aim 投出好球帶外（outEdge/chase 格）的權重。弱控乘數>1、強控<1，樞紐保住聯盟平均。
+      //   實測：BB9 R² 0.146→0.505、聯盟 mean BB9 不塌陷。pitch-engine.js controlBallRateMul() 是單一來源。
+      ctrlBallRateCoef: 0.012,  // control 70→×1.0、40→×1.36、100→×0.64
+
+      // Wave B-2 — 通道 1（velocity→K9）：球速直接扣 contact（不靠 stuff/velocityLock），樞紐 velocity=70。
+      //   ⚠️ 用 ability 樞紐(70)而非 §16 原設計的 speedKmh 樞紐(142)，避免整體下壓聯盟 AVG。
+      velContactCoef: 0.18,     // velocity 90→contact -3.6、50→+3.6（clamp 後 contact 扣分 -10~+4）
+      // Wave C-1（breaking→揮空，§16.15）已試並退回：breaking 與 stuff 共線、R² 不升只墊高 K 率。
+
+      // Wave C-2 — 通道 6（crisis→leverage）：壘上有人時 crisis 同時加 ctrl/break/vel（§16.15）。
+      //   只在 game.js 真實對局生效（sim 不模擬壘上跑者，故 sim 量不到）。ctrlCoef 0.20 = 舊 /5（相容）。
+      crisisCtrlCoef:  0.20,
+      crisisBreakCoef: 0.10,
+      crisisVelCoef:   0.05,
+
+      // ── Phase 0 新參數（配球意圖 + 打者預期 + 差異化追打）──
+      // 所有新參數預設 0 = 不啟用。sequencingEnabled=1 才啟用全部。
+      sequencingEnabled: 1,  // 總開關，1=啟用 PitchIntent 配球＋打者預期＋差異化追打
+
+      // Phase 1：配球意圖（CountIntentSelector → PitchIntentBuilder → SequenceEnhancer）
+      putaway_breakPreferred: 0.65,     // putaway 意圖（0-2/1-2）偏好 breaking ball 權重
+      putaway_fastballUpChance: 0.25,   // putaway 意圖用高速球瞄上緣機率（眼位+速差）
+      mustStrike_fastballOnly: 0.90,    // must_strike 意圖（3-0/3-1）只用速球系的機率
+      getAhead_fastballPreferred: 0.60, // get_ahead 意圖（0-0）偏好速球權重
+      weaknessExploitWeight: 0.20,      // 打者弱點（pitchTypeMatchup）對球種選擇影響
+      sequenceEyeLevelBonus: 0.10,      // 眼位變化（高低交替）加分
+      sequenceSpeedContrastBonus: 0.10, // 速差（快慢交替）加分
+      sequenceTunnelingBonus: 0.08,     // 同 aim zone 不同球種（tunneling）加分
+      usageRepeatPenalty: 0.40,         // 連續同球種遞減懲罰
+
+      // Phase 2：打者預期模型
+      batterGuessBaseAccuracy: 0.30, // 打者猜球種基礎正確率
+      batterLearningRate: 0.15,      // 每次投球後更新信念速率
+      speedContrastThreshold: 8,     // 速差對 timing 干擾閾值（km/h）
+      eyeLevelChangeThreshold: 15,   // 眼位變化對 depth perception 干擾（cm）
+
+      // Phase 3：差異化追打/揮空（已啟用）
+      lateBreakChaseBonus: 0.12,  // late-breaking（aim in→final out）額外追打率
+      wasteChasePenalty: 0.08,    // waste pitch（全程壞球）追打率降低
+      backdoorChaseBonus: 0.03,   // backdoor（aim out→final in）額外追打率
+      deceptionWhiffBoost: 0.04,  // deception（late break+難辨識）揮空率加成
+
+      // Wave F：per-pitch 擊球品質抑制（預設 0 = 不啟用）
+      waveF_speedQualityCoef: 0.06,      // (speedKmh-140)*0.06 → 155kmh≈EV扣0.9, 140以下不扣
+      waveF_lateBreakQualityCoef: 4.0,   // lateBreakFactor*4 → SL(0.70)=2.8, FF(0.10)=0.4
+      waveF_deceptionQualityCoef: 3.0,   // deceptionWindow*3 → CH(0.65)=2.0, FF(0.15)=0.5
+      waveF_locationQualityCoef: 0.12    // (dist-15)*0.12 → 邊角30cm=1.8, 紅中10cm=0
+    }
   };
 
   global.GAME_PARAMS = GAME_PARAMS;

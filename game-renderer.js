@@ -29,13 +29,40 @@
     getElement(id) { return this.doc ? this.doc.getElementById(id) : null; }
     setText(id, value) { const el = this.getElement(id); if (el) el.textContent = value; }
 
+    // v4.2a+4.2b：播放日誌渲染（向後相容舊格式 + 新格式分類/雙人播報）
+    _renderPlayLog(log) {
+      const icons = { hr:'💣 ', hit:'🏏 ', double:'⚡ ', triple:'🔥 ', k:'❌ ', bb:'🟡 ', out:'⬛ ', error:'💥 ', sb:'🏃 ', run:'⬆ ', tension:'⚠ ', system:'' };
+      const entries = log.slice(-20).reverse();
+      return entries.map((entry, i) => {
+        if (typeof entry === 'string') {
+          return `<p class="log-entry log-system log-slide-in" style="animation-delay:${i * 0.02}s">${entry}</p>`;
+        }
+        const type = entry.type || 'system';
+        const level = entry.level || 'normal';
+        const animClass = (i === 0 && level === 'highlight') ? 'log-pop' : 'log-slide-in';
+        const typeClass = `log-${type}`;
+        const levelClass = (level === 'highlight') ? 'log-highlight' : '';
+        const icon = icons[type] || '';
+
+        if (entry.lines && Array.isArray(entry.lines)) {
+          const linesHtml = entry.lines.map(l => {
+            const cls = `broadcast-${l.speaker}`;
+            const label = l.speaker === 'caster' ? '蔡兄' : '鍾sir';
+            return `<span class="${cls}">【${label}】${l.text}</span>`;
+          }).join('\n');
+          return `<div class="log-entry ${typeClass} ${levelClass} ${animClass} log-broadcast" style="animation-delay:${i * 0.03}s">${linesHtml}</div>`;
+        }
+        return `<p class="log-entry ${typeClass} ${levelClass} ${animClass}" style="animation-delay:${i * 0.02}s">${icon}${entry.text || entry}</p>`;
+      }).join('');
+    }
+
     render(game) {
       if (!this.doc || !game) return;
       const matchup      = game.getCurrentMatchup();
       const activePitcher = matchup.pitcher;
       const logDiv = this.getElement('play-log');
       if (logDiv) {
-        logDiv.innerHTML = game.log.slice(-20).reverse().map(msg => `<p>${msg}</p>`).join('');
+        logDiv.innerHTML = this._renderPlayLog(game.log);
       }
       this.setText('inning',         game.inning);
       this.setText('half',           game.currentHalf === 'top' ? i18n.top : i18n.bottom);

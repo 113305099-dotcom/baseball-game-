@@ -90,6 +90,47 @@
     i18n() {
       return this.deps.call('i18n') || {};
     }
+
+    // v4.2a+4.2b：播放日誌渲染（分類 color coding + 雙人播報 + 動畫 class）
+    _renderPlayLog(log) {
+      const entries = log.slice(-20).reverse(); // 最新在上
+      return entries.map((entry, i) => {
+        // 舊格式（純字串）→ 包裝
+        if (typeof entry === 'string') {
+          return `<p class="log-entry log-system log-slide-in" style="animation-delay:${i * 0.02}s">${entry}</p>`;
+        }
+        // 新格式：{ text, type, level, lines }
+        const type  = entry.type  || 'system';
+        const level = entry.level || 'normal';
+        const animClass  = (i === 0 && level === 'highlight') ? 'log-pop' : 'log-slide-in';
+        const typeClass  = `log-${type}`;
+        const levelClass = (level === 'highlight') ? 'log-highlight' : '';
+
+        // v4.2b：雙人播報 lines 格式
+        if (entry.lines && Array.isArray(entry.lines)) {
+          const linesHtml = entry.lines.map(l => {
+            const cls = `broadcast-${l.speaker}`;
+            const label = l.speaker === 'caster' ? '蔡兄' : '鍾sir';
+            return `<span class="${cls}">【${label}】${l.text}</span>`;
+          }).join('\n');
+          return `<div class="log-entry ${typeClass} ${levelClass} ${animClass} log-broadcast" style="animation-delay:${i * 0.03}s">${linesHtml}</div>`;
+        }
+
+        // 一般文字（含 type icon）
+        const icon = this._logTypeIcon(type);
+        return `<p class="log-entry ${typeClass} ${levelClass} ${animClass}" style="animation-delay:${i * 0.02}s">${icon}${entry.text || entry}</p>`;
+      }).join('');
+    }
+
+    // v4.2a：事件類型 icon
+    _logTypeIcon(type) {
+      const icons = {
+        hr: '💣 ', hit: '🏏 ', double: '⚡ ', triple: '🔥 ',
+        k: '❌ ', bb: '🟡 ', out: '⬛ ', error: '💥 ',
+        sb: '🏃 ', run: '⬆ ', tension: '⚠ ', system: ''
+      };
+      return icons[type] || '';
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -103,11 +144,10 @@
       const matchup = game.getCurrentMatchup();
       const i18n    = this.i18n();
 
-      // 播放日誌
+      // 播放日誌（v4.2a：分類 color coding + v4.2b 雙人播報格式）
       const logDiv = this.getElement('play-log');
       if (logDiv) {
-        logDiv.innerHTML = game.log.slice(-20).reverse()
-          .map(msg => `<p>${msg}</p>`).join('');
+        logDiv.innerHTML = this._renderPlayLog(game.log);
       }
 
       // 局數、球數

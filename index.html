@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DotGothic16&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.1">
+  <link rel="stylesheet" href="style.css?v=5.4">
 </head>
 <body>
   <div class="container">
@@ -50,6 +50,7 @@
             <strong id="opponent-name">CPBL</strong>
           </div>
         </div>
+        <button id="audio-toggle" class="audio-toggle" title="靜音/取消靜音" aria-label="音效開關" type="button">🔊</button>
       </header>
 
       <main class="stage">
@@ -193,6 +194,12 @@
                     <span class="count-chip out-chip"><label>O</label><strong id="outs">0</strong></span>
                     <span class="count-chip runner-chip"><label>壘</label><strong id="runners">無</strong></span>
                   </div>
+                  <!-- v4.2a：投手／打者／球速 移入 overlay -->
+                  <div class="mso-players">
+                    <span class="mso-pitcher">投 <strong id="mso-pitcher">-</strong></span>
+                    <span class="mso-batter">打 <strong id="mso-batter">-</strong></span>
+                    <span class="mso-speed">⚡ <strong id="mso-speed">-</strong> km/h</span>
+                  </div>
                 </div>
 
                 <!-- v4.1 CRT：換局記分板 overlay（覆蓋在 CRT 螢幕上，預設隱藏；換局時自動出現，或按「記分板」鈕） -->
@@ -261,8 +268,11 @@
                   <div><span class="matchup-lbl">打策</span><strong id="batting-config">-</strong></div>
                   <div><span class="matchup-lbl">投策</span><strong id="pitch-config">-</strong></div>
                 </div>
+                <!-- v4.2a：逐球紀錄條 -->
+                <div id="pitch-tracker" class="pitch-tracker"></div>
                 <!-- 即時轉播日誌 -->
                 <section class="arena-log" aria-label="實況轉播">
+                  <button id="log-expand-btn" class="log-expand-btn" title="展開轉播記錄" type="button">⤢</button>
                   <div id="play-log" class="play-log arena-play-log"></div>
                 </section>
               </div>
@@ -510,6 +520,14 @@
 
               </div><!-- /arena-duel-panels -->
 
+              <!-- v4.2a：展開轉播記錄 overlay -->
+              <div class="log-expanded-overlay hidden" id="log-expanded-overlay" aria-hidden="true">
+                <div class="log-expanded-box" id="log-expanded-box">
+                  <button type="button" class="log-close" id="log-expanded-close" aria-label="關閉">✕</button>
+                  <div id="log-expanded-content"></div>
+                </div>
+              </div>
+
               <!-- v4.1 CRT no-scroll：打序/牛棚/戰術卡 移入 overlay（#show-lineup 叫出），不再常駐右欄 -->
               <div class="lineup-overlay hidden" id="lineup-overlay" aria-hidden="true">
                 <div class="lineup-overlay-box">
@@ -746,8 +764,11 @@
   <script src="newspaper-summary.js"></script>
   <script src="story-intro.js"></script>
   <script src="tutorial-system.js"></script>
+  <script src="sound-manager.js"></script>
   <script src="engine.js"></script>
   <script src="pitch-engine.js"></script>
+  <script src="pitch-sequencing-engine.js"></script>
+  <script src="batter-ai-model.js"></script>
   <script src="baseball-physics-engine.js"></script>
   <script src="fielding-engine.js"></script>
   <script src="baserunning-engine.js"></script>
@@ -837,6 +858,11 @@
         // v4.1 #6：比賽中隱藏頂部狀態欄
         document.body.classList.toggle('in-match', name === 'match' || name === 'wbc');
         mountScene(name);
+        // v4.2a：場景 BGM
+        if (window.SoundManager) {
+          const bgmScene = { lobby: 'lobby', pregame: 'pregame', match: 'match', wbc: 'match', storyline: 'lobby' };
+          SoundManager.playSceneBGM(bgmScene[name] || 'menu');
+        }
         window.setTimeout(() => next.classList.remove('scene-enter'), 340);
       }, 224);
     }
@@ -1254,6 +1280,71 @@
       initLockbar();
     }
 
+    // v4.2a：音效開關按鈕
+    const audioToggleBtn = document.getElementById('audio-toggle');
+    if (audioToggleBtn) {
+      audioToggleBtn.addEventListener('click', () => {
+        if (!window.SoundManager) return;
+        const muted = SoundManager.toggleMute();
+        audioToggleBtn.textContent = muted ? '🔇' : '🔊';
+        audioToggleBtn.title = muted ? '取消靜音' : '靜音';
+      });
+    }
+
+    // v4.2a：展開轉播記錄按鈕
+    const logExpandBtn = document.getElementById('log-expand-btn');
+    const logExpandedOv = document.getElementById('log-expanded-overlay');
+    const logExpandedClose = document.getElementById('log-expanded-close');
+    const logExpandedContent = document.getElementById('log-expanded-content');
+    if (logExpandBtn && logExpandedOv) {
+      logExpandBtn.addEventListener('click', () => {
+        // 顯示全部記錄（最近 50 條）
+        logExpandedContent.innerHTML = (game.log || []).slice(-50).reverse().map((entry, i) => {
+          if (typeof entry === 'string') return `<p style="padding:4px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1">${entry}</p>`;
+          const type = entry.type || 'system';
+          const icon = { hr:'💣 ', hit:'🏏 ', double:'⚡ ', triple:'🔥 ', k:'❌ ', bb:'🟡 ', out:'⬛ ', error:'💥 ', sb:'🏃 ', run:'⬆ ', tension:'⚠ ', system:'' }[type] || '';
+          if (entry.lines && Array.isArray(entry.lines)) {
+            return '<div style="padding:4px 0;border-bottom:1px solid rgba(148,163,184,0.1)">' +
+              entry.lines.map(l => {
+                const cls = `broadcast-${l.speaker}`;
+                const label = l.speaker === 'caster' ? '蔡兄' : '鍾sir';
+                return `<span class="${cls}">【${label}】${l.text}</span>`;
+              }).join('<br>') + '</div>';
+          }
+          return `<p style="padding:4px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1">${icon}${entry.text || entry}</p>`;
+        }).join('');
+        logExpandedOv.classList.remove('hidden');
+      });
+    }
+    if (logExpandedClose && logExpandedOv) {
+      logExpandedClose.addEventListener('click', () => logExpandedOv.classList.add('hidden'));
+    }
+    if (logExpandedOv) {
+      logExpandedOv.addEventListener('click', (e) => { if (e.target === logExpandedOv) logExpandedOv.classList.add('hidden'); });
+    }
+
+    // v4.2a：逐球 tracker 更新函式
+    window.updatePitchTracker = function(pitchResult) {
+      const tracker = document.getElementById('pitch-tracker');
+      if (!tracker) return;
+      const iconMap = {
+        strike: '<span class="pt-strike">🔴</span>',
+        ball:   '<span class="pt-ball">🟡</span>',
+        foul:   '<span class="pt-foul">⚪</span>',
+        inplay: '<span class="pt-inplay">⚾</span>'
+      };
+      if (pitchResult === 'reset') { tracker.innerHTML = ''; return; }
+      const icon = iconMap[pitchResult] || '';
+      tracker.innerHTML += icon;
+    };
+
+    // v4.2a：首次互動時初始化音效
+    const initAudio = () => {
+      if (window.SoundManager) { SoundManager.init(); }
+      document.removeEventListener('click', initAudio);
+    };
+    document.addEventListener('click', initAudio, { once: false });
+
     const originalAddCommentary = game.addCommentary.bind(game);
     game.addCommentary = function(outcomeKey, player, cardActive) {
       if (currentScene !== 'match') return;
@@ -1290,6 +1381,20 @@
             ${state ? `<strong class="stamina-state-tag" style="background:${state.color};color:#0a0e1a;padding:2px 8px;border-radius:4px;font-weight:800">${state.icon} ${state.label}</strong>` : `<strong>${stamina}/${max}</strong>`}
           </div>
         `;
+      }
+
+      // v4.2a：右下 overlay 投手/打者/球速同步
+      const msoPitcher = document.getElementById('mso-pitcher');
+      const msoBatter  = document.getElementById('mso-batter');
+      const msoSpeed   = document.getElementById('mso-speed');
+      if (msoPitcher || msoBatter || msoSpeed) {
+        const mu = game.getCurrentMatchup?.() || {};
+        if (msoPitcher) msoPitcher.textContent = mu.pitcher?.name || '-';
+        if (msoBatter)  msoBatter.textContent  = mu.batter?.name  || '-';
+        if (msoSpeed) {
+          const sp = game.lastPitchSpeed;
+          msoSpeed.textContent = (sp != null) ? `${sp} km/h` : '- km/h';
+        }
       }
 
       const drawLocalBtn = document.getElementById('draw-local');

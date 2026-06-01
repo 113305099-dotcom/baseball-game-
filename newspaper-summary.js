@@ -192,13 +192,21 @@
     `;
   }
 
+  function hideSummary() {
+    const modal = document.getElementById('match-summary-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
   function showNewspaperSummary(ctx) {
     const modal = document.getElementById('match-summary-modal');
     if (!modal) return;
     const box = modal.querySelector('.modal-box');
     if (!box) return;
     box.innerHTML = `
-      <button class="modal-close" type="button" onclick="closeSummary()" aria-label="關閉">×</button>
+      <button class="modal-close" type="button" onclick="window.hideSummary()" aria-label="關閉">×</button>
       ${renderNewspaperSummary(ctx)}
     `;
     box.classList.add('newspaper-modal');
@@ -206,5 +214,17 @@
     modal.classList.add('flex');
   }
 
-  global.NewspaperSummary = { renderNewspaperSummary, showNewspaperSummary };
+  // 點擊 modal 背景也關閉 + Escape 鍵關閉
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', function(e) {
+      const modal = document.getElementById('match-summary-modal');
+      if (modal && e.target === modal) hideSummary();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') hideSummary();
+    });
+  }
+
+  global.NewspaperSummary = { renderNewspaperSummary, showNewspaperSummary, hideSummary };
+  global.hideSummary = hideSummary;
 })(typeof window !== 'undefined' ? window : globalThis);

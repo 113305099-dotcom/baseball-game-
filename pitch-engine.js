@@ -28,6 +28,76 @@
   "use strict";
 
   // ─────────────────────────────────────────────
+  // 投手通道係數（投打對決修正書 §16 投手 9 通道對稱化）
+  //   引擎內建預設值＝校準來源（sim-tester.html 不載入 game-params.js）；
+  //   若 game-params.js 已載入並定義 GAME_PARAMS.pitcherChannels，則覆寫之。
+  //   ⚠️ 兩處數值必須保持一致。
+  // ─────────────────────────────────────────────
+  const PITCHER_CHANNELS = Object.assign({
+    // ── Wave A/B/C（已落地）──
+    stuffMulCoef:     0.008,  // Wave A：plateDiscipline 混合對投手 stuffScore 動態化（stuff 70 → ×1.0）
+    // Wave B 真正的 control→BB9 通道（§16.14）：壞球率（aim 投出好球帶外的權重）隨控球變、樞紐 control=70。
+    //   取代失敗的 missOffset 路線（§16 通道 2，已證實保送非由投球落點決定）。
+    ctrlBallRateCoef: 0.012,  // control 70→×1.0、40→×1.36、100→×0.64（弱控投更多壞球→保送↑）
+    // Wave B-2 velocity 通道（§16.14 通道 1）：球速直接扣 contact（不靠 stuff、不靠 velocityLock）。
+    //   樞紐 velocity=70（平均投手 0 penalty、不位移聯盟 AVG），有別於 §16 原設計的 speedKmh 樞紐 142。
+    velContactCoef:   0.18,   // velocity 90→contact -3.6、50→+3.6、100→-5.4（clamp -10~+4）
+    // Wave C-1 breaking 通道（§16.15）已試並退回：breaking 與 stuff 共線，R² 不升、只墊高 K 率。
+    // Wave C-2 crisis 通道（只在 game.js 真實對局生效、sim 量不到）
+    crisisCtrlCoef:  0.20,
+    crisisBreakCoef: 0.10,
+    crisisVelCoef:   0.05,
+
+    // ── Phase 0 新參數（配球意圖 + 打者預期 + 差異化追打）──
+    // 所有新參數預設 0 = 不啟用。sequencingEnabled=1 才啟用全部。
+    sequencingEnabled: 0,  // 總開關（sim-tester 用此預設=0，瀏覽器 game-params.js 覆寫為 1）
+
+    // Phase 1：配球意圖（CountIntentSelector → PitchIntentBuilder → SequenceEnhancer）
+    putaway_breakPreferred:     0.65,  // putaway 意圖（0-2/1-2）偏好 breaking ball 權重
+    putaway_fastballUpChance:   0.25,  // putaway 意圖用高速球瞄上緣機率（眼位+速差）
+    mustStrike_fastballOnly:    0.90,  // must_strike 意圖（3-0/3-1）只用速球系的機率
+    getAhead_fastballPreferred: 0.60,  // get_ahead 意圖（0-0）偏好速球權重
+    weaknessExploitWeight:      0.20,  // 打者弱點（pitchTypeMatchup）對球種選擇影響
+    sequenceEyeLevelBonus:      0.10,  // 眼位變化（高低交替）加分
+    sequenceSpeedContrastBonus: 0.10,  // 速差（快慢交替）加分
+    sequenceTunnelingBonus:     0.08,  // 同 aim zone 不同球種（tunneling）加分
+    usageRepeatPenalty:         0.40,  // 連續同球種遞減懲罰
+
+    // Phase 2：打者預期模型
+    batterGuessBaseAccuracy: 0.30,  // 打者猜球種基礎正確率
+    batterLearningRate:      0.15,  // 每次投球後更新信念速率
+    speedContrastThreshold:  8,     // 速差對 timing 干擾閾值（km/h）
+    eyeLevelChangeThreshold: 15,    // 眼位變化對 depth perception 干擾（cm）
+
+    // Phase 3：差異化追打/揮空（已啟用）
+    lateBreakChaseBonus:  0.12,  // late-breaking（aim in→final out）額外追打率
+    wasteChasePenalty:    0.08,  // waste pitch（全程壞球）追打率降低
+    backdoorChaseBonus:   0.03,  // backdoor（aim out→final in）額外追打率
+    deceptionWhiffBoost:  0.04,  // deception（late break+難辨識）揮空率加成
+
+    // Wave F：per-pitch 擊球品質抑制（命中抑制通道）
+    //   不同於 Wave B 的 velContactPenalty（扣 contact → 影響 whiff/in-play 分流），
+    //   Wave F 扣 effectivePower → 影響進場球的 EV/品質 → 降低被安打率。
+    //   用 per-pitch 資料（非能力值）：球速、尾勁、欺騙性、進壘點。
+    waveF_speedQualityCoef:     0.06,  // (speedKmh-140)*0.06 → 155kmh≈EV扣0.9, 140以下不扣
+    waveF_lateBreakQualityCoef: 4.0,   // lateBreakFactor*4 → SL(0.70)=2.8, FF(0.10)=0.4
+    waveF_deceptionQualityCoef: 3.0,   // deceptionWindow*3 → CH(0.65)=2.0, FF(0.15)=0.5
+    waveF_locationQualityCoef:  0.12,  // (dist-15)*0.12 → 邊角30cm=1.8, 紅中10cm=0
+  }, (global.GAME_PARAMS && global.GAME_PARAMS.pitcherChannels) || {});
+
+  /**
+   * 控球 → 壞球率乘數（§16.14 Wave B control 通道，單一來源）。
+   * 樞紐 control=70 回傳 1.0，保住聯盟平均 BB9 不塌陷；弱控 >1（壞球↑）、強控 <1。
+   * game.js resolvePitchAimCell 與 sim-tester resolvePitchAimCellGameLike 都呼叫本函式。
+   */
+  function controlBallRateMul(control) {
+    const c = Number(control);
+    const ctrl = Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 70;
+    const mul = 1 - (ctrl - 70) * PITCHER_CHANNELS.ctrlBallRateCoef;
+    return Math.max(0.40, Math.min(1.60, mul));
+  }
+
+  // ─────────────────────────────────────────────
   // 共用數學工具（不依賴任何 game 狀態）
   // ─────────────────────────────────────────────
 
@@ -102,6 +172,19 @@
     '曲球':   0.77
   };
 
+  // Phase 3：球種欺騙屬性（lateBreakFactor = 變化集中在飛行後段的比例）
+  const PITCH_LATE_BREAK = {
+    '四縫線': 0.10, '二縫線': 0.25, '卡特球': 0.35, '切球': 0.35,
+    '伸卡球': 0.25, '滑球': 0.70, '變速球': 0.30, '指叉': 0.85,
+    '快速指叉': 0.80, '曲球': 0.40
+  };
+  // Phase 3：球種辨識難度（deceptionWindow = 打者多難早期辨識此球種）
+  const PITCH_DECEPTION_WINDOW = {
+    '四縫線': 0.15, '二縫線': 0.25, '卡特球': 0.30, '切球': 0.30,
+    '伸卡球': 0.25, '滑球': 0.50, '變速球': 0.65, '指叉': 0.60,
+    '快速指叉': 0.55, '曲球': 0.45
+  };
+
   const STRATEGY_PROFILES = {
     standard:  { label: '標準',      radiusDelta: 0,   contactMod: 0,   powerMod: 0,   eyeMod: 0,   chaseBonus: 0,     whiffDelta: 0,     foulDelta: 0,    inPlayDelta: 0    },
     power:     { label: '強力揮擊',  radiusDelta: -6,  contactMod: -8,  powerMod: 10,  eyeMod: -6,  chaseBonus: -0.01, whiffDelta: 0.03,  foulDelta: -0.02, inPlayDelta: -0.01 },
@@ -171,6 +254,27 @@
     if (d <= 22.5)  return 'edge';    // 好球帶外緣
     if (d <= 33.75) return 'chase';   // 好球帶外 0.5 倍寬（追打區）
     return 'invalid';                 // 遠離好球帶
+  }
+
+  /**
+   * Phase 3：球路軌跡分類
+   *   比較飛行中期（50% movement）與最終位置的 zone，判斷球路型態。
+   *   回傳 'late_break' | 'waste' | 'backdoor' | 'strike' | 'hittable_strike'
+   */
+  function classifyPitchTrajectory(midPoint, finalPosition) {
+    const midZone = classifyPlateZone(midPoint);
+    const finalZone = classifyPlateZone(finalPosition);
+
+    const midInStrike = (midZone === 'core' || midZone === 'edge');
+    const finalInStrike = (finalZone === 'core' || finalZone === 'edge');
+    const finalIsChase = (finalZone === 'chase' || finalZone === 'invalid');
+
+    if (midInStrike && finalIsChase) return 'late_break';       // aim-in, break-out → 引誘球
+    if (!midInStrike && finalIsChase) return 'waste';           // 全程壞球 → waste pitch
+    if (!midInStrike && finalInStrike) return 'backdoor';       // aim-out, break-in → backdoor
+    if (finalZone === 'core') return 'hittable_strike';         // 全程紅中 → 打者最愛
+    if (finalInStrike) return 'strike';                         // 好球（非紅中）
+    return 'other';                                              // 罕見邊界狀況
   }
 
   // ─────────────────────────────────────────────
@@ -273,10 +377,25 @@
         stuffScore,
         stuffGrade,
         speedKmh,
+        pitcherVelocity: Number.isFinite(pitcherStats?.velocity) ? pitcherStats.velocity : 70,  // §16.14 B-2 velocity 通道用
         effortKey,
         isControlLapse,   // v4.1 3B：本球是否高出力失控（暴投級偏移）
         wildChance,       // 當下失控機率（debug/UI 用）
-        aimCellIndex: aimIndex
+        aimCellIndex: aimIndex,
+        // Phase 3：球種欺騙屬性
+        deceptionAttributes: (() => {
+          const pName = (typeof pitchConfig.pitchType === 'string')
+            ? pitchConfig.pitchType
+            : (pitchConfig.pitchType?.name || pitchConfig.pitchTypeName || '');
+          return {
+            lateBreakFactor: PITCH_LATE_BREAK[pName] ?? 0.30,
+            deceptionWindow: PITCH_DECEPTION_WINDOW[pName] ?? 0.30,
+            trajectoryMidPoint: {
+              x: postMiss.x + moveX * 0.5,
+              y: postMiss.y + moveY * 0.5
+            }
+          };
+        })()
       };
     },
 
@@ -338,20 +457,22 @@
   // ─────────────────────────────────────────────
 
   /**
-   * BatterJudgmentModule.decide(batterStats, pitchState, battingConfig) → SwingDecision
+   * BatterJudgmentModule.decide(batterStats, pitchState, battingConfig, batterExpectation?) → SwingDecision
    *
    * @param {Object} batterStats   打者有效能力值（已套用 trait/strategy/condition 修正）
    *   { eye, contact, power, bats }
    * @param {PitchState} pitchState  來自 PitchPhysicsModule.generate()
    * @param {Object} battingConfig   打者本球設定
    *   { strategyKey, targetZoneIndex(0-8), velocityLock('fast'|'slow'|'none'), pitchSpeedGroup, strikes }
+   * @param {Object} [batterExpectation]  Phase 2 打者預期模型狀態（可選，null=無模型）
+   *   { guessedPitchType, guessConfidence, expectedSpeedGroup, lastGuessCorrect, timingState }
    * @returns {SwingDecision}
    *   { swings, perceivedStrike, pCorrectRead, chaseProb,
    *     timingMod, effectiveSwingRadius,
    *     targetZoneCenter, targetDist, edgePenalty }
    */
   const BatterJudgmentModule = {
-    decide(batterStats, pitchState, battingConfig) {
+    decide(batterStats, pitchState, battingConfig, batterExpectation) {
       const { originalTarget, finalPosition, movementMag } = pitchState;
       const strategyKey   = battingConfig.strategyKey ?? 'standard';
       const strategy      = STRATEGY_PROFILES[strategyKey] ?? STRATEGY_PROFILES.standard;
@@ -388,12 +509,37 @@
         0.18, 0.94
       );
 
+      // Phase 2：打者預期模型微調（batterExpectation 非 null 時才生效）
+      let expectationMod = { pCorrectReadDelta: 0, timingContactDelta: 0, eyeDelta: 0 };
+      if (batterExpectation && batterExpectation.guessedPitchType) {
+        // 使用 BatterAIModel 計算微調值
+        if (typeof global.BatterAIModel !== 'undefined' && global.BatterAIModel.computeExpectationMod) {
+          expectationMod = global.BatterAIModel.computeExpectationMod(
+            batterExpectation,
+            battingConfig.pitchTypeCode || '',
+            pitchState.speedKmh,
+            pitchState.finalPosition
+          );
+        }
+      }
+      const adjustedPCorrectRead = MathUtils.clamp(
+        pCorrectRead + expectationMod.pCorrectReadDelta,
+        0.15, 0.96
+      );
+      // timingMod 疊加打者預期的速度對比懲罰
+      if (expectationMod.timingContactDelta !== 0) {
+        timingMod.contact = MathUtils.clamp(
+          (timingMod.contact || 0) + expectationMod.timingContactDelta,
+          -21, 12
+        );
+      }
+
       // 打者「感知」好壞球
       const actualInStrike = Math.abs(judgmentPosition.x) <= GEOMETRY.strikeHalf
                           && Math.abs(judgmentPosition.y) <= GEOMETRY.strikeHalf;
       const perceivedStrike = actualInStrike
-        ? Math.random() < pCorrectRead
-        : Math.random() < (1 - pCorrectRead);
+        ? Math.random() < adjustedPCorrectRead
+        : Math.random() < (1 - adjustedPCorrectRead);
 
       // 有效出棒半徑（§17.6 策略出棒區）
       const twoStrikeStandard = strategyKey === 'standard' && strikes === 2;
@@ -418,6 +564,25 @@
       const swingCountData = batterStats?.advancedStats?.swingByCount?.[`${balls}-${strikes}`];
       if (swingCountData && Number.isFinite(Number(swingCountData.swingRate))) {
         chaseProb = MathUtils.clamp(chaseProb + (Number(swingCountData.swingRate) - 0.47) * 0.30, 0.04, 0.55);
+      }
+
+      // Phase 3：球路軌跡差異化追打率
+      //   late_break（aim-in→break-out）＝打者啟動揮棒後球跑掉 → 追打率高
+      //   waste（全程壞球）＝打者早期辨識 → 追打率低
+      //   backdoor（aim-out→break-in）＝看起來像壞球但最後拐進好球帶 → 中等
+      const da = pitchState.deceptionAttributes;
+      if (da && da.trajectoryMidPoint) {
+        const trajType = classifyPitchTrajectory(da.trajectoryMidPoint, judgmentPosition);
+        const ch = PITCHER_CHANNELS;
+        if (trajType === 'late_break') {
+          chaseProb += da.lateBreakFactor * (ch.lateBreakChaseBonus || 0.12);
+          chaseProb += da.deceptionWindow * 0.04;
+        } else if (trajType === 'waste') {
+          chaseProb -= (ch.wasteChasePenalty || 0.08);
+        } else if (trajType === 'backdoor') {
+          chaseProb += (ch.backdoorChaseBonus || 0.03);
+        }
+        chaseProb = MathUtils.clamp(chaseProb, 0.02, 0.58);
       }
 
       // 出棒決策（§17.6）— v1.3 重寫：感知好球也機率性出棒（不再 hard true）
@@ -453,7 +618,7 @@
       return {
         swings,
         perceivedStrike,
-        pCorrectRead,
+        pCorrectRead: adjustedPCorrectRead,
         chaseProb,
         timingMod,
         effectiveSwingRadius,
@@ -509,7 +674,7 @@
    */
   const ContactResolutionModule = {
     resolve(batterStats, pitchState, swingDecision, battingConfig) {
-      const { finalPosition, stuffScore, movementMag } = pitchState;
+      const { finalPosition, stuffScore, movementMag, pitcherVelocity } = pitchState;
       const { timingMod, targetZoneCenter, strategy } = swingDecision;
       const strategyKey  = battingConfig.strategyKey ?? 'standard';
       const strikes      = MathUtils.clamp(battingConfig.strikes ?? 0, 0, 2);
@@ -531,6 +696,11 @@
       // situationalContactMod（預設 0，可由外部傳入兩好球保護等修正）
       const situationalContactMod = battingConfig.situationalContactMod ?? 0;
 
+      // §16.14 Wave B-2 velocity 通道（通道 1）：球速直接扣 contact（不靠 stuff、不靠 velocityLock）。
+      //   樞紐 velocity=70 → 0；快速球派壓 contact↑whiff↑K9↑、慢速派反向。對打者均勻、相對排序不變。
+      const velForContact = Number.isFinite(pitcherVelocity) ? pitcherVelocity : 70;
+      const velContactPenalty = MathUtils.clamp((velForContact - 70) * PITCHER_CHANNELS.velContactCoef, -10, 4);
+
       // finalContactScore（§17.8）
       const finalContactScore = MathUtils.clamp(
         (batterStats.contact ?? 70)
@@ -539,6 +709,7 @@
         + timingMod.contact
         + strategy.contactMod
         - pitchStuffPenalty
+        - velContactPenalty
         + situationalContactMod,
         0, 100
       );
@@ -548,6 +719,15 @@
       // §17.9 三路機率 — v1.4 退一半校：baseline 0.27（介於 0.23 與 0.32），stuff 影響 /250（介於 /300 與 /180）
       let whiffProb  = MathUtils.clamp(0.27 - contactQuality * 0.20 + pitchStuffPenalty / 250, 0.03, 0.45) + strategy.whiffDelta;
       let inPlayProb = MathUtils.clamp(0.18 + contactQuality * 0.46, 0.10, 0.72) + strategy.inPlayDelta;
+
+      // Phase 3：球路欺騙揮空加成（late break + 難辨識球種 → 打者更難擊中）
+      if (pitchState.deceptionAttributes) {
+        const da = pitchState.deceptionAttributes;
+        const deceptionBoost = da.lateBreakFactor * (PITCHER_CHANNELS.deceptionWhiffBoost || 0.04)
+                             + da.deceptionWindow * 0.03;
+        whiffProb += deceptionBoost;
+      }
+
       let foulProb   = (1 - whiffProb - inPlayProb) + strategy.foulDelta;
 
       // plateDiscipline 四區歷史比率混合（30%，需 ≥20 球樣本）
@@ -557,10 +737,15 @@
           && Number.isFinite(Number(pdZone.whiffRate)) && Number.isFinite(Number(pdZone.inPlayRate))) {
         const pdW = Number(pdZone.whiffRate);
         const pdI = Number(pdZone.inPlayRate);
-        const pdF = Math.max(0, 1 - pdW - pdI);
-        whiffProb  = whiffProb  * 0.70 + pdW * 0.30;
-        inPlayProb = inPlayProb * 0.70 + pdI * 0.30;
-        foulProb   = foulProb   * 0.70 + pdF * 0.30;
+        // §16 通道 4 配套（Wave A）：對投手 stuffScore 動態化，避免投手強弱訊號被打者 PA 平均攤稀。
+        //   強投（stuff>70）放大 whiffRate 預期、縮小 inPlayRate 預期；弱投反向。
+        const stuffMul = 1 + (stuffScore - 70) * PITCHER_CHANNELS.stuffMulCoef;
+        const pdW_adj  = MathUtils.clamp(pdW * stuffMul,                0.01, 0.95);
+        const pdI_adj  = MathUtils.clamp(pdI / Math.max(0.5, stuffMul), 0.01, 0.95);
+        const pdF_adj  = Math.max(0, 1 - pdW_adj - pdI_adj);
+        whiffProb  = whiffProb  * 0.70 + pdW_adj * 0.30;
+        inPlayProb = inPlayProb * 0.70 + pdI_adj * 0.30;
+        foulProb   = foulProb   * 0.70 + pdF_adj * 0.30;
       }
 
       // pitchTypeMatchup 球種歷史比率混合（25%，需 ≥15 球樣本）
@@ -583,6 +768,9 @@
         inPlayProb = MathUtils.clamp(1 - whiffProb - foulProb, 0.08, 0.70);
       }
 
+      // §16.15 Wave C-1 breaking 通道（通道 3）已試並退回：breaking 與 stuff 共線，加揮空不分強弱
+      //   （R² 持平）只墊高 K 率（mean K9 7.38→7.74 過頭）。詳見修正書 §16.15。
+
       // 正規化（確保三路相加 = 1）
       ({ whiffProb, foulProb, inPlayProb } = this._normalizeProbabilities(whiffProb, foulProb, inPlayProb));
 
@@ -602,7 +790,7 @@
       }
 
       // effectivePower（§17.11 用）
-      const effectivePower = MathUtils.clamp(
+      let effectivePower = MathUtils.clamp(
         (batterStats.power ?? 70)
         + hotZoneMod.power
         + timingMod.power
@@ -610,6 +798,27 @@
         - pitchStuffPenalty * 0.35,
         0, 100
       );
+
+      // Wave F：per-pitch 擊球品質抑制（命中抑制通道）
+      if (pitchState.deceptionAttributes && pitchState.finalPosition) {
+        const ch = PITCHER_CHANNELS;
+        const da = pitchState.deceptionAttributes;
+        const { speedKmh, finalPosition } = pitchState;
+
+        const speedQualityPenalty = (ch.waveF_speedQualityCoef || 0) !== 0
+          ? MathUtils.clamp((speedKmh - 140) * (ch.waveF_speedQualityCoef || 0), -4, 4) : 0;
+        const lateBreakQualityPenalty = (ch.waveF_lateBreakQualityCoef || 0) !== 0
+          ? (da.lateBreakFactor || 0) * (ch.waveF_lateBreakQualityCoef || 0) : 0;
+        const deceptionQualityPenalty = (ch.waveF_deceptionQualityCoef || 0) !== 0
+          ? (da.deceptionWindow || 0) * (ch.waveF_deceptionQualityCoef || 0) : 0;
+        const centerDist = Math.hypot(finalPosition.x, finalPosition.y);
+        const locationQualityPenalty = (ch.waveF_locationQualityCoef || 0) !== 0
+          ? MathUtils.clamp((centerDist - 15) * (ch.waveF_locationQualityCoef || 0), 0, 8) : 0;
+
+        effectivePower -= (speedQualityPenalty + lateBreakQualityPenalty +
+                           deceptionQualityPenalty + locationQualityPenalty);
+        effectivePower = MathUtils.clamp(effectivePower, 0, 100);
+      }
 
       return {
         finalContactScore,
@@ -784,7 +993,7 @@
    */
   const PitchEngineOrchestrator = {
     resolveSinglePitch(input) {
-      const { pitcherStats, pitchConfig, batterStats, battingConfig } = input;
+      const { pitcherStats, pitchConfig, batterStats, battingConfig, batterExpectation } = input;
       const balls   = MathUtils.clamp(battingConfig.balls ?? 0, 0, 3);
       const strikes = MathUtils.clamp(battingConfig.strikes ?? 0, 0, 2);
 
@@ -802,8 +1011,9 @@
         ...battingConfig,
         pitchSpeedGroup,
         strikes,
-        balls
-      });
+        balls,
+        pitchTypeCode
+      }, batterExpectation || null);
 
       // 3. 不出棒 → 單純球數推進
       if (!swing.swings) {
@@ -913,11 +1123,23 @@
     /** 輔助：最終位置 → core/edge/chase/invalid */
     classifyPlateZone,
 
+    /** §16.14 Wave B：控球 → 壞球率乘數（單一來源，aim 函式用） */
+    controlBallRateMul,
+    PITCHER_CHANNELS,
+
     /** 輔助：格子中心座標 */
     getGridCenter: (index, size) => getGridCenter(index, size),
 
     /** 球種速度係數（v3.26）：各球種相對於極速的比例 */
-    PITCH_SPEED_RATIO
+    PITCH_SPEED_RATIO,
+
+    /** Phase 3：球種欺騙屬性 */
+    PITCH_LATE_BREAK,
+    PITCH_DECEPTION_WINDOW,
+    classifyPitchTrajectory,
+
+    /** 坑：PITCHER_CHANNELS 參考（供外部工具讀取當前參數） */
+    PITCHER_CHANNELS: PITCHER_CHANNELS
   };
 
   // 向後相容：舊版 game.js 仍可透過 window.PitchPhysicsModule 等名稱訪問

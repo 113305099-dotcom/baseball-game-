@@ -889,7 +889,13 @@ class Player {
     this.advancedStats = normalizeAdvancedStats(meta.advancedStats || this.sourceStats.advancedStats || {});
     this.abilities = this.normalizeAbilities(meta.abilities);
     this.condition = meta.condition || 'normal';
-    this.pitchTypes = Array.isArray(meta.pitchTypes) ? meta.pitchTypes : this.generatePitchTypes();
+    // v1.5：真實 pitchTypes（含 moveX/Y）優先，並儲存供升級時保留
+    if (Array.isArray(meta.pitchTypes) && meta.pitchTypes.length > 0) {
+      this._realPitchTypes = meta.pitchTypes;
+      this.pitchTypes = this.generatePitchTypes(); // 初次生成（用真實資料 + 當前能力）
+    } else {
+      this.pitchTypes = this.generatePitchTypes();
+    }
 
     // v1.14：投手分工與恢復系統
     // pitcherRole: 'SP'（先發） / 'RP'（後援） / null（非投手）
@@ -965,6 +971,38 @@ class Player {
 
   generatePitchTypes() {
     if (!this.canPitch()) return [];
+
+    // v1.5：若從真實資料載入過 pitchTypes，升級時保留位移資料，只更新能力欄位
+    if (Array.isArray(this._realPitchTypes) && this._realPitchTypes.length > 0) {
+      const velocity = this.abilities.velocity || this.physical.velocity || 70;
+      const control = this.abilities.control || this.physical.control || 70;
+      const breaking = this.abilities.breaking || control;
+      const stuff = this.abilities.stuff || Math.round((velocity + breaking) / 2);
+
+      return this._realPitchTypes.map(pt => {
+        // 計算此球種的原始偏移量（真實值 − 當時能力值）
+        const orig = pt._origin || {};
+        const speedOffset = orig.speedOffset ?? (pt.speed - (orig.velocity || velocity));
+        const moveOffset  = orig.moveOffset  ?? (pt.movement - (orig.breaking || breaking));
+        const ctrlOffset  = orig.ctrlOffset  ?? (pt.control - (orig.control || control));
+        const stuffOffset = orig.stuffOffset ?? (pt.stuff - (orig.stuff || stuff));
+
+        return {
+          name: pt.name,
+          speed:    clampInt(velocity + speedOffset),
+          movement: clampInt(breaking + moveOffset),
+          control:  clampInt(control + ctrlOffset),
+          stuff:    clampInt(stuff + stuffOffset),
+          slugRisk: pt.slugRisk || 50,
+          // 保留真實位移範圍
+          moveXMin: pt.moveXMin, moveXMax: pt.moveXMax,
+          moveYMin: pt.moveYMin, moveYMax: pt.moveYMax,
+          _origin: { velocity, breaking, control, stuff, speedOffset, moveOffset, ctrlOffset, stuffOffset }
+        };
+      }).slice(0, 5);
+    }
+
+    // Fallback：現行公式
     const velocity = this.abilities.velocity || this.physical.velocity;
     const control = this.abilities.control || this.physical.control;
     const breaking = this.abilities.breaking || control;
@@ -1933,6 +1971,8 @@ class Game {
     this.duelMode = 'pitch';
     // v4.1 3C'：玩家指定的實際球種名稱（null = 交給配球邏輯自動選）。只影響我方投球。
     this.playerPitchChoice = null;
+    // Phase 0：打席脈絡（配球歷史、打者預期狀態、投手使用統計）。每打席開始時重建。
+    this.atBatContext = null;
     this.managementLog = [];
     // v3.22：賽事統計（每場比賽重置）
     this.matchStats = { playerK: 0, playerBB: 0, playerHR: 0, opponentK: 0, opponentBB: 0, opponentHR: 0, keyEvents: [] };
@@ -3201,11 +3241,24 @@ class Game {
     this.updateUI();
   }
 
-  addToLog(message) {
-    this.log.push(message);
+  // addToLog(message, opts?)
+  // opts: { type: 'hr'|'hit'|'k'|'bb'|'out'|'error'|'sb'|'run'|'system'|'tension'|'double'|'triple',
+  //          level: 'normal'|'highlight',
+  //          lines: [{speaker:'caster'|'color', text}, ...] }  ← v4.2b 雙人播報格式
+  addToLog(message, opts = {}) {
+    // 正規化：支援只傳字串（舊呼叫點向下相容）
+    if (typeof message === 'string' && arguments.length === 1) {
+      opts = { type: 'system', level: 'normal' };
+    }
+    const entry = (typeof message === 'object' && message.text != null) ? message : { text: String(message) };
+    entry.type  = opts.type  || entry.type  || 'system';
+    entry.level = opts.level || entry.level || 'normal';
+    if (opts.lines && !entry.lines) entry.lines = opts.lines;
+
+    this.log.push(entry);
     // v3.22：即時追蹤關鍵事件供賽後回顧
-    if (this.matchStats && message) {
-      const txt = (typeof message === 'string' ? message : String(message)).replace(/<[^>]+>/g, '');
+    if (this.matchStats && entry.text) {
+      const txt = (typeof entry.text === 'string' ? entry.text : String(entry.text)).replace(/<[^>]+>/g, '');
       const isOffense = this.currentHalf === 'bottom'; // 我方進攻
       if (txt.includes('本壘打') || txt.includes('全壘打')) {
         if (isOffense) this.matchStats.playerHR++; else this.matchStats.opponentHR++;
@@ -3220,7 +3273,21 @@ class Game {
       // v3.23：per-batter stats 追蹤
       this._trackPerPlayerStats(txt, isOffense);
     }
+    // v4.2a：事件音效
+    this._triggerEventSFX(typeof entry.text === 'string' ? entry.text : String(entry.text || ''));
     this.updateUI();
+  }
+
+  // v4.2a：從 addToLog 文字辨識事件類型並觸發對應 SFX
+  _triggerEventSFX(txt) {
+    if (typeof window === 'undefined' || !window.SoundManager) return;
+    const raw = txt.replace(/<[^>]+>/g, '');
+    if (raw.includes('全壘打') || raw.includes('本壘打'))       SoundManager.playSFX('homerun');
+    else if (raw.includes('三振'))                             SoundManager.playSFX('strikeout');
+    else if (raw.includes('安打'))                             SoundManager.playSFX('hit');
+    else if (raw.includes('界外'))                             SoundManager.playSFX('foul');
+    else if (raw.includes('接殺') || (raw.includes('出局') && raw.includes('球'))) SoundManager.playSFX('catch');
+    else if (raw.includes('得分') || raw.includes('回本壘'))   SoundManager.playSFX('cheer');
   }
 
   // v3.23：依當前打者/投手把事件累加到 playerBatterStats
@@ -3251,11 +3318,70 @@ class Game {
     this.updateUI();
   }
 
-  addCommentary(outcomeKey, player, cardActive = false) {
-    const commentary = this.commentaryGenerator.generateCommentary(outcomeKey, player, cardActive);
-    if (commentary) {
-      this.log.push(`<span class="commentary">${commentary}</span>`);
+  // v4.2b：使用 BroadcastGenerator 產生雙人播報 + 隨機閒聊/冷笑話
+  addCommentary(outcomeKey, player, cardActive = false, extra = {}) {
+    // 初始化 broadcast generator（若尚未建立）
+    if (!this._broadcastGen) {
+      this._broadcastGen = (typeof BroadcastGenerator !== 'undefined')
+        ? new BroadcastGenerator() : null;
     }
+    // 初始化 banter 追蹤（每場重置）
+    if (!this._banterClock) this._banterClock = 0;
+
+    const tension = this._estimateTension();
+    const lines = this._broadcastGen
+      ? this._broadcastGen.generateCall(outcomeKey, player, extra)
+      : null;
+
+    // 決定事件類型（給 color coding 用）
+    const typeMap = {
+      homeRun: 'hr', strikeout: 'k', single: 'hit', double: 'double',
+      triple: 'triple', groundOut: 'out', flyOut: 'out', popupOut: 'out',
+      walk: 'bb', error: 'error', stolenBase: 'sb', runScored: 'run'
+    };
+    const evType = typeMap[outcomeKey] || 'system';
+    const evLevel = (outcomeKey === 'homeRun' || extra.walkoff || extra.grandSlam) ? 'highlight' : 'normal';
+
+    if (lines && lines.length) {
+      this.addToLog({ text: lines.map(l => l.text).join(' '), lines, type: evType, level: evLevel });
+    } else {
+      // fallback 舊格式
+      const text = this.commentaryGenerator.generateCommentary(outcomeKey, player, cardActive, extra);
+      if (text) this.addToLog(text, { type: evType, level: evLevel });
+    }
+
+    // v4.2b：閒聊/冷笑話觸發（在低張力事件後，機率觸發）
+    this._banterClock++;
+    if (this._banterClock >= 3 && tension < 7 && this._broadcastGen) {
+      // 先試冷笑話（低機率）
+      const joke = this._broadcastGen.maybeDadJoke(tension);
+      if (joke && joke.lines) {
+        this.addToLog({ text: joke.lines.map(l => l.text).join(' '), lines: joke.lines, type: 'tension', level: 'normal' });
+      } else {
+        // 再試閒聊
+        const banter = this._broadcastGen.maybeBanter(tension, this.currentHalf);
+        if (banter && banter.lines) {
+          this.addToLog({ text: banter.lines.map(l => l.text).join(' '), lines: banter.lines, type: 'system', level: 'normal' });
+        }
+      }
+      this._banterClock = 0;
+    }
+  }
+
+  // v4.2b：估算當前比賽張力（0-10，0=超鬆／10=九局下半平手）
+  _estimateTension() {
+    let t = 3; // baseline
+    if (this.inning >= 7) t += 2;
+    if (this.inning >= 9) t += 1;
+    const diff = Math.abs((this.playerScore || 0) - (this.opponentScore || 0));
+    if (diff <= 1) t += 2;
+    else if (diff <= 3) t += 1;
+    else t -= 1;
+    if (this.outs >= 2 && this.currentHalf === 'bottom') t += 1;
+    const runnersOn = (this.playerRunners || []).filter(Boolean).length + (this.opponentRunners || []).filter(Boolean).length;
+    if (runnersOn >= 2) t += 2;
+    else if (runnersOn === 1) t += 1;
+    return Math.max(0, Math.min(10, t));
   }
 
   switchHalf() {
@@ -3334,6 +3460,9 @@ class Game {
     if (typeof this.applyCoachAbilityBonuses === 'function') this.applyCoachAbilityBonuses();
     // v2.11 #10：清空上一場的轉播日誌
     this.log = [];
+    // v4.2b：重置廣播生成器狀態（每場新比賽重置笑話/閒聊記錄）
+    this._banterClock = 0;
+    if (this._broadcastGen) this._broadcastGen.resetForMatch();
     // v3.22：重置賽事統計
     this.matchStats = { playerK: 0, playerBB: 0, playerHR: 0, opponentK: 0, opponentBB: 0, opponentHR: 0, keyEvents: [] };
     // v3.23：重置 per-batter stats
@@ -4495,27 +4624,37 @@ function pickWeighted(items) {
   return items[items.length - 1]?.value ?? null;
 }
 
-function resolvePitchAimCell(game, battingTeam, plan = 'balanced') {
+function resolvePitchAimCell(game, battingTeam, plan = 'balanced', control = 70) {
   if (battingTeam === 'opponent') {
     return normalizeZoneIndex(game.pitchAimCell, 5, 12);
   }
+  // §16.14 Wave B（control→BB9 通道）：對手投手控球 → 壞球率乘數。
+  //   好球帶外格子（誘揮帶/純壞球）的權重 ×mul，樞紐 control=70 → ×1.0（保住聯盟平均）；
+  //   弱控 >1（投更多壞球→保送↑）、強控 <1。單一來源＝pitch-engine.js controlBallRateMul()。
+  const ballMul = (window.PitchEngine && PitchEngine.controlBallRateMul)
+    ? PitchEngine.controlBallRateMul(control) : 1;
+  // 5×5 好球帶內＝inner 3×3：6,7,8,11,12,13,16,17,18；其餘皆好球帶外。
+  const IN_ZONE = new Set([6, 7, 8, 11, 12, 13, 16, 17, 18]);
+  const applyBallMul = arr => arr.map(c => IN_ZONE.has(c.value) ? c : { ...c, weight: c.weight * ballMul });
+
   if (plan === 'fastball') {
-    return pickWeighted([
+    return pickWeighted(applyBallMul([
       { value: 6, weight: 0.9 }, { value: 7, weight: 1 }, { value: 8, weight: 0.9 },
       { value: 11, weight: 1.1 }, { value: 12, weight: 1.45 }, { value: 13, weight: 1.1 },
       { value: 16, weight: 0.9 }, { value: 17, weight: 1 }, { value: 18, weight: 0.9 },
       { value: 1, weight: 0.65 }, { value: 3, weight: 0.65 }, { value: 5, weight: 0.55 }, { value: 9, weight: 0.55 },
       { value: 15, weight: 0.55 }, { value: 19, weight: 0.55 }, { value: 21, weight: 0.65 }, { value: 23, weight: 0.65 }
-    ]);
+    ]));
   }
   if (plan === 'breaking') {
-    return pickWeighted([
+    return pickWeighted(applyBallMul([
       { value: 6, weight: 1.2 }, { value: 8, weight: 1.2 }, { value: 16, weight: 1.2 }, { value: 18, weight: 1.2 },
       { value: 1, weight: 0.8 }, { value: 3, weight: 0.8 }, { value: 21, weight: 0.8 }, { value: 23, weight: 0.8 },
       { value: 0, weight: 0.35 }, { value: 4, weight: 0.35 }, { value: 20, weight: 0.35 }, { value: 24, weight: 0.35 }
-    ]);
+    ]));
   }
   if (plan === 'waste') {
+    // 故意投壞球（保送/誘揮戰術），不套 control 乘數。
     return pickWeighted([
       { value: 0, weight: 1 }, { value: 1, weight: 1 }, { value: 2, weight: 1 }, { value: 3, weight: 1 }, { value: 4, weight: 1 },
       { value: 5, weight: 1 }, { value: 9, weight: 1 }, { value: 10, weight: 1 }, { value: 14, weight: 1 },
@@ -4523,14 +4662,14 @@ function resolvePitchAimCell(game, battingTeam, plan = 'balanced') {
       { value: 22, weight: 1 }, { value: 23, weight: 1 }, { value: 24, weight: 1 }
     ]);
   }
-  return pickWeighted([
+  return pickWeighted(applyBallMul([
     { value: 6, weight: 0.9 }, { value: 7, weight: 0.95 }, { value: 8, weight: 0.9 },
     { value: 11, weight: 1 }, { value: 12, weight: 1.15 }, { value: 13, weight: 1 },
     { value: 16, weight: 0.9 }, { value: 17, weight: 0.95 }, { value: 18, weight: 0.9 },
     { value: 1, weight: 0.75 }, { value: 3, weight: 0.75 }, { value: 5, weight: 0.55 }, { value: 9, weight: 0.55 },
     { value: 15, weight: 0.55 }, { value: 19, weight: 0.55 }, { value: 21, weight: 0.75 }, { value: 23, weight: 0.75 },
     { value: 0, weight: 0.3 }, { value: 4, weight: 0.3 }, { value: 20, weight: 0.3 }, { value: 24, weight: 0.3 }
-  ]);
+  ]));
 }
 
 function sampleMissOffset(controlScore) {
@@ -4839,6 +4978,12 @@ class OpponentAI {
           { value: 'waste', weight: 1 }
         ]);
       }
+      // Phase 1：sequencing 啟用時，用意圖系統記錄配球策略
+      if (typeof PitchSequencingEngine !== 'undefined' && typeof GAME_PARAMS !== 'undefined' && GAME_PARAMS.pitcherChannels && GAME_PARAMS.pitcherChannels.sequencingEnabled) {
+        var aiRunners = g.playerRunners.filter(Boolean).length;
+        var aiScDiff = g.opponentScore - g.playerScore;
+        g._opponentIntent = PitchSequencingEngine.selectIntent(g.balls, g.strikes, aiRunners, aiScDiff);
+      }
       g.opponentPitchEffort = inning >= 8 && Math.abs(scoreDiff) <= 1 ? 'full' : (scoreDiff < -2 ? 'easy' : 'normal');
       const label = { fastball: '速球強攻', balanced: '均衡配球', breaking: '變化球誘騙', waste: '引誘出棒' }[g.opponentPitchPlan];
       if (g.opponentPitchPlan !== 'balanced') {
@@ -4938,6 +5083,11 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     game.opponentUseBurnLife = false;
   }
 
+  // Phase 1/2：新打席開始時（球數 0-0）重置 atBatContext
+  if (game.balls === 0 && game.strikes === 0) {
+    game.atBatContext = null;
+  }
+
   // ── 2. 計算投手有效能力值（trait / condition / weather / team bonus）──
   let vel      = pitcher.getEffectiveVelocity();
   let ctrl     = pitcher.getEffectiveControl();
@@ -4985,25 +5135,81 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
 
   // 投球計畫對能力值的修正（對方投手是 player 守備時用 opponentPitchPlan）
   const activePitchPlan = battingTeam === 'player' ? game.opponentPitchPlan : game.pitchPlan;
-  if (activePitchPlan === 'fastball')  { vel += 5; breaking -= 2; }
-  if (activePitchPlan === 'breaking')  { breaking += 7; ctrl -= 3; }
-  if (activePitchPlan === 'waste')     ctrl -= 6;
 
   // 選球種
   const pitchPool = Array.isArray(pitcher.pitchTypes) ? pitcher.pitchTypes : [];
-  // v4.1 3C'：我方投球時，若玩家有指定實際球種，優先用玩家選的；否則沿用配球啟發式
+  // v4.1 3C'：我方投球時，若玩家有指定實際球種，優先用玩家選的；否則沿用配球邏輯
   const playerChoice = (battingTeam === 'opponent' && game.playerPitchChoice)
     ? pitchPool.find(p => getPitchName(p) === game.playerPitchChoice)
     : null;
-  const selectedPitch = playerChoice
-    ? playerChoice
-    : activePitchPlan === 'fastball'
-      ? pitchPool.find(p => getPitchName(p).includes('縫線') || getPitchName(p).includes('卡特')) || pitchPool[0]
-      : activePitchPlan === 'breaking'
-        ? pitchPool.slice().sort((a, b) => (b.movement || 0) - (a.movement || 0))[0]
-        : activePitchPlan === 'waste'
-          ? pitchPool.slice().sort((a, b) => (b.control || 0) - (a.control || 0))[0]
-          : pitchPool[0];
+
+  // Phase 1：PitchIntent 配球引擎（sequencingEnabled=1 時啟用）
+  var aimCellFromIntent = null;
+  var selectedPitch = null;
+  var intentUsed = null;
+
+  if (typeof PitchSequencingEngine !== 'undefined' && typeof GAME_PARAMS !== 'undefined' && GAME_PARAMS.pitcherChannels && GAME_PARAMS.pitcherChannels.sequencingEnabled) {
+    // ── 意圖驅動配球 ──
+    var runnerCnt = (battingTeam === 'player' ? game.playerRunners : game.opponentRunners).filter(Boolean).length;
+    var scDiff = battingTeam === 'player' ? game.opponentScore - game.playerScore : game.playerScore - game.opponentScore;
+
+    intentUsed = PitchSequencingEngine.selectIntent(game.balls, game.strikes, runnerCnt, scDiff);
+
+    // 打者弱點資料（從 batter.advancedStats.pitchTypeMatchup）
+    var batterMatchup = (batter.advancedStats && batter.advancedStats.pitchTypeMatchup) || null;
+
+    // 建立/更新 atBatContext
+    if (!game.atBatContext) {
+      game.atBatContext = { pitchHistory: [], batterGuess: null, pitcherState: { usageCount: {}, lastPitches: [] } };
+      // Phase 2：初始化打者預期模型
+      if (typeof BatterAIModel !== 'undefined') {
+        game.atBatContext.batterGuess = BatterAIModel.initializeExpectation(pitchPool);
+      }
+    }
+
+    // Phase 2：打者預測下一球（在 PitchEngine 之前）
+    if (game.atBatContext && game.atBatContext.batterGuess && typeof BatterAIModel !== 'undefined') {
+      game.atBatContext.batterGuess = BatterAIModel.predictNextPitch(
+        game.atBatContext.batterGuess, game.atBatContext,
+        { balls: game.balls, strikes: game.strikes }
+      );
+    }
+
+    var chosen = PitchSequencingEngine.selectPitchIntent(
+      intentUsed, pitchPool, batterMatchup, vel, pitcher.throws, game.atBatContext, ctrl
+    );
+
+    if (chosen && chosen.pitch) {
+      selectedPitch = chosen.pitch;
+      aimCellFromIntent = chosen.aimCellIndex;
+      // Wave B control→BB9：PitchIntent 選的理想 aim 疊加控球偏移
+      var ctrlBallMul = (typeof PitchEngine !== 'undefined' && PitchEngine.controlBallRateMul)
+        ? PitchEngine.controlBallRateMul(ctrl) : 1;
+      if (ctrlBallMul > 1.0) {
+        var overrideChance = Math.min(0.45, (ctrlBallMul - 1.0) * 0.55);
+        if (Math.random() < overrideChance) {
+          aimCellFromIntent = null; // 退回 resolvePitchAimCell 的 control 加權路徑
+        }
+      }
+    }
+  }
+
+  // Fallback：若 sequencing 未啟用或選不出球種，退回現行邏輯
+  if (!selectedPitch) {
+    if (activePitchPlan === 'fastball')  { vel += 5; breaking -= 2; }
+    if (activePitchPlan === 'breaking')  { breaking += 7; ctrl -= 3; }
+    if (activePitchPlan === 'waste')     ctrl -= 6;
+
+    selectedPitch = playerChoice
+      ? playerChoice
+      : activePitchPlan === 'fastball'
+        ? pitchPool.find(p => getPitchName(p).includes('縫線') || getPitchName(p).includes('卡特')) || pitchPool[0]
+        : activePitchPlan === 'breaking'
+          ? pitchPool.slice().sort((a, b) => (b.movement || 0) - (a.movement || 0))[0]
+          : activePitchPlan === 'waste'
+            ? pitchPool.slice().sort((a, b) => (b.control || 0) - (a.control || 0))[0]
+            : pitchPool[0];
+  }
 
   if (selectedPitch) {
     vel      += ((selectedPitch.speed    || 75) - 75) / 18;
@@ -5059,10 +5265,14 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     }
   }
 
-  // 得點圈加成
+  // 得點圈加成（§16.15 Wave C-2 通道 6：crisis 擴大到 ctrl/break/vel，與打者 scoringPosition 對稱）
   if (game.getCurrentRunners().some((r, idx) => r && idx >= 1)) {
     contact += ((batter.abilities.scoringPosition || contact) - 70) / 5;
-    ctrl    += ((pitcher.abilities.crisis         || ctrl)    - 70) / 5;
+    const pc = (typeof GAME_PARAMS !== 'undefined' && GAME_PARAMS.pitcherChannels) || {};
+    const crisisAdj = (pitcher.abilities.crisis ?? ctrl) - 70;
+    ctrl     += crisisAdj * (pc.crisisCtrlCoef  ?? 0.20);  // 0.20 = 舊 /5（相容）
+    breaking += crisisAdj * (pc.crisisBreakCoef ?? 0.10);
+    vel      += crisisAdj * (pc.crisisVelCoef   ?? 0.05);
   }
 
   // 教練 bonus
@@ -5087,7 +5297,10 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     throws:     pitcher.throws
   };
 
-  const pitchAimCellIndex = resolvePitchAimCell(game, battingTeam, activePitchPlan);
+  // Phase 1：sequencing 啟用且有 intent 決定的 aim cell → 優先使用；否則走現行邏輯
+  const pitchAimCellIndex = (aimCellFromIntent != null)
+    ? aimCellFromIntent
+    : resolvePitchAimCell(game, battingTeam, activePitchPlan, ctrl);
   // v3.25.3：玩家投手時若有設定 pitchAimPosition（拖拉式 UI），優先使用
   const aimPos = (battingTeam === 'opponent' && game.pitchAimPosition
                   && Number.isFinite(game.pitchAimPosition.x))
@@ -5129,7 +5342,8 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     pitcherStats,
     pitchConfig,
     batterStats,
-    battingConfig
+    battingConfig,
+    batterExpectation: (game.atBatContext && game.atBatContext.batterGuess) || null
   });
 
   const { pitch, swing, contact: contactResult, inPlay, summary } = engineResult;
@@ -5166,6 +5380,48 @@ function resolveAtBatWithContext(game, pitcher, batter, burnLife = false) {
     finalContactScore:  contactResult?.finalContactScore ?? null,
     hotZoneMod:         contactResult?.hotZoneMod ?? null
   };
+
+  // Phase 1：更新 atBatContext（配球歷史）
+  if (game.atBatContext && selectedPitch) {
+    var pState = game.atBatContext.pitcherState;
+    var pName = getPitchName(selectedPitch);
+    var pCode = (typeof PitchEngine !== 'undefined' && PitchEngine.classifyPitchTypeCode)
+      ? PitchEngine.classifyPitchTypeCode(pName) : pName;
+    var aimCenter = (typeof PitchSequencingEngine !== 'undefined')
+      ? PitchSequencingEngine.getAimCenter(pitchAimCellIndex) : { x: 0, y: 0 };
+
+    pState.usageCount[pName] = (pState.usageCount[pName] || 0) + 1;
+    pState.lastPitches.push({
+      name: pName,
+      ptCode: pCode,
+      aimCellIndex: pitchAimCellIndex,
+      aimX: aimCenter.x,
+      aimY: aimCenter.y,
+      aimZone: pitch ? (pitch.isStrike ? 'strike' : 'ball') : 'unknown',
+      speedKmh: pitch ? pitch.speedKmh : null
+    });
+    // 保留最近 12 球
+    if (pState.lastPitches.length > 12) pState.lastPitches.shift();
+
+    game.atBatContext.pitchHistory.push({
+      pitchType: pName,
+      ptCode: pCode,
+      speedKmh: pitch ? pitch.speedKmh : null,
+      finalPosition: pitch ? pitch.finalPosition : null,
+      isStrike: pitch ? pitch.isStrike : false,
+      outcome: summary.outcome,
+      countBefore: { balls: game.balls, strikes: game.strikes }
+    });
+  }
+
+  // Phase 2：更新打者預期（每球後學習）
+  if (game.atBatContext && game.atBatContext.batterGuess && typeof BatterAIModel !== 'undefined' && selectedPitch) {
+    var pFinalY = pitch && pitch.finalPosition ? pitch.finalPosition.y : null;
+    game.atBatContext.batterGuess = BatterAIModel.updateAfterPitch(
+      game.atBatContext.batterGuess, getPitchName(selectedPitch),
+      pitch ? pitch.speedKmh : null, pFinalY
+    );
+  }
 
   // ── 7. 副作用：消耗體力、卡牌效果 ────────────────────────────────────
   const shadowClone = game.cardManager.activeEffects.shadowClone;

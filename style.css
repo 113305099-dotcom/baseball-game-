@@ -6264,3 +6264,202 @@ body.in-match .match-arena { height: 100vh; }
 /* 打者 console 的九宮格置中 */
 .batter-console .console-aim .zone-grid-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .batter-console .zone-grid-3 { width: 168px; }
+
+/* ═══ v4.2a 音效控制 ═══ */
+.audio-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0; margin-left: 4px;
+  font-size: 1.1rem; border-radius: 10px;
+  background: rgba(8, 15, 28, 0.7); border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #e2e8f0; cursor: pointer;
+  transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.audio-toggle:hover { background: rgba(30, 41, 59, 0.8); border-color: rgba(148, 163, 184, 0.5); }
+.audio-toggle:active { transform: scale(0.94); }
+
+/* 比賽中音效按鈕仍顯示（其他 HUD 隱藏時此鈕保留） */
+body.in-match .audio-toggle {
+  position: fixed; top: 8px; right: 12px; z-index: 100;
+  width: 32px; height: 32px; font-size: .95rem; border-radius: 8px;
+  background: rgba(8, 15, 28, 0.85);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   v4.2a + v4.2b — 轉播欄豐富化：事件 color coding + 雙人播報 + 動畫
+   + pitch tracker + 局分隔線 + 狀態摘要列 + 展開按鈕
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 事件類型顏色（左邊框 + icon 區分）── */
+.log-entry {
+  margin: 2px 0; padding: 3px 8px;
+  border-left: 3px solid rgba(148,163,184,0.3);
+  font-size: .62rem; line-height: 1.4;
+  color: #cbd5e1;
+  background: rgba(255,255,255,0.02);
+  border-radius: 0 4px 4px 0;
+  opacity: 0; animation-fill-mode: forwards;
+}
+.log-hr       { border-left-color: #f87171; color: #fde68a; }
+.log-hit      { border-left-color: #4ade80; }
+.log-double   { border-left-color: #fb923c; }
+.log-triple   { border-left-color: #f97316; }
+.log-k        { border-left-color: #60a5fa; color: #93c5fd; }
+.log-bb       { border-left-color: #fbbf24; }
+.log-out      { border-left-color: #64748b; color: #94a3b8; font-size: .56rem; }
+.log-error    { border-left-color: #e11d48; color: #fda4af; }
+.log-sb       { border-left-color: #06b6d4; }
+.log-run      { border-left-color: #22c55e; color: #fde68a; font-weight: 700; }
+.log-system   { border-left-color: #475569; color: #94a3b8; font-size: .56rem; }
+.log-tension  { border-left-color: #fbbf24; animation: tension-flash 1s ease-in-out infinite; }
+
+.log-highlight {
+  font-size: .72rem; font-weight: 700;
+  padding: 5px 10px;
+  background: rgba(248,113,113,0.08);
+}
+
+/* ── 雙人播報：對話框 ── */
+.log-broadcast {
+  display: flex; flex-direction: column; gap: 2px;
+  border-left: none; padding: 4px 6px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+}
+.broadcast-caster {
+  display: block;
+  font-weight: 700; color: #f8fafc;
+  border-left: 3px solid #f87171;
+  padding: 1px 0 1px 8px;
+  font-size: .66rem;
+}
+.broadcast-color {
+  display: block;
+  font-weight: 400; font-style: italic; color: #94a3b8;
+  border-left: 3px solid #60a5fa;
+  padding: 1px 0 1px 16px;
+  font-size: .6rem;
+}
+.log-joke .broadcast-color { color: #fbbf24; border-left-color: #fbbf24; }
+.log-joke .broadcast-caster { color: #fca5a5; }
+
+/* ── 進場動畫 ── */
+@keyframes log-slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes log-pop {
+  0%   { opacity: 0; transform: scale(0.9); }
+  50%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes tension-flash {
+  0%, 100% { border-left-color: #fbbf24; }
+  50%      { border-left-color: #ef4444; }
+}
+.log-slide-in { animation: log-slide-in .28s ease-out forwards; }
+.log-pop      { animation: log-pop .4s ease-out forwards; }
+
+/* ── 局分隔線 ── */
+.inning-divider {
+  text-align: center; padding: 4px 0; margin: 4px 0;
+  font-size: .6rem; font-weight: 700; color: #64748b;
+  border-top: 1px dashed rgba(148,163,184,0.15);
+  border-bottom: 1px dashed rgba(148,163,184,0.15);
+  letter-spacing: .06em;
+}
+
+/* ── 轉播狀態摘要列 ── */
+.broadcast-status-line {
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 8px; font-size: .56rem;
+  color: #94a3b8;
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+.broadcast-status-line .bsl-inning { color: #e2e8f0; font-weight: 700; }
+.broadcast-status-line .bsl-count { color: #93c5fd; }
+.broadcast-status-line .bsl-vs    { color: #f87171; font-weight: 700; }
+
+/* ── 逐球紀錄條 (pitch tracker) ── */
+.pitch-tracker {
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 6px; font-size: .72rem;
+  min-height: 20px;
+}
+.pitch-tracker .pt-strike { color: #f87171; }
+.pitch-tracker .pt-ball   { color: #fbbf24; }
+.pitch-tracker .pt-foul   { color: #94a3b8; opacity: .6; }
+.pitch-tracker .pt-inplay { color: #4ade80; }
+
+/* ── 展開轉播欄按鈕 ── */
+.log-expand-btn {
+  position: absolute; top: 4px; right: 6px;
+  width: 22px; height: 22px; padding: 0;
+  font-size: .7rem; line-height: 1;
+  background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.25);
+  border-radius: 4px; color: #94a3b8; cursor: pointer;
+  z-index: 5;
+}
+.log-expand-btn:hover { background: rgba(148,163,184,0.25); color: #e2e8f0; }
+
+/* ── 展開的轉播面板 overlay ── */
+.log-expanded-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(2px);
+}
+.log-expanded-overlay.hidden { display: none; }
+.log-expanded-box {
+  position: relative;
+  width: min(640px, 90vw); max-height: 78vh; overflow-y: auto;
+  background: #0d1525; border: 1px solid rgba(148,163,184,0.3);
+  border-radius: 14px; padding: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  font-size: .68rem;
+}
+.log-expanded-box .log-close {
+  position: sticky; top: 0; float: right;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.3);
+  color: #e2e8f0; cursor: pointer; font-size: .85rem; z-index: 2;
+}
+.log-expanded-box .log-close:hover { background: rgba(248,113,113,0.3); border-color: #f87171; }
+
+/* ── arena-log 容器改為 relative 給展開鈕定位 ── */
+.arena-broadcast .arena-log { position: relative; overflow-y: auto; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   v4.2a 空間優化 — 刪轉播欄上方資訊，釋放空間給轉播日誌
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 隱藏轉播欄頂部的標題列（LIVE 紅點）+ 比賽資訊列（投手/打者/球速等） */
+.arena-broadcast .broadcast-head,
+.arena-broadcast .arena-matchup-bar { display: none; }
+
+/* 轉播日誌吃掉全部釋放出來的空間 */
+.arena-broadcast { gap: 2px; padding: 4px; }
+.arena-broadcast .arena-log { flex: 1 1 auto; max-height: none !important; min-height: 100px; }
+
+/* 左右留白修正：左欄 padding 最小化，右欄靠邊 */
+.arena-canvas-col { padding: 6px 8px 4px; }
+.arena-controls-col { padding: 4px 6px; }
+
+/* 擴充右下資訊欄：加入投手/打者/球速行 */
+.match-status-overlay {
+  gap: 2px;
+  padding: 6px 8px;
+  min-width: 170px;
+}
+.mso-players {
+  display: flex; flex-direction: column; gap: 1px;
+  font-size: .56rem;
+  color: #ffd5d5;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 3px; margin-top: 1px;
+}
+.mso-players .mso-pitcher { color: #93c5fd; }
+.mso-players .mso-batter  { color: #fde68a; }
+.mso-players .mso-speed   { color: #cbd5e1; font-size: .52rem; }
+.mso-players strong { color: #fff; font-weight: 700; }
